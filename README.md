@@ -1,4 +1,4 @@
-# Hill_RTS-s_immune_development_code
+# Hill RTS-s immune development code
 
 Supporting code for Hill et al. "Immune system development varies according to age, location and anemia in African children"
 
@@ -9,16 +9,60 @@ This code supports the manuscript. In particular, it outlines our methodology be
 
 This is a github mirror of an RStudio project. R libraries are managed by the packrat library manager, so it should be possible for the end-user to install on their local machine on a 'fresh' version of R.
 
-The relevant data is supplied in the folder /data
+The relevant data is supplied in the folder `/data`
 
-## Workflow
+Html output is provided in the folder `/html`. Knitting the provided Rmarkdown files (.Rmd) here will re-generate these html files in the project directory.
 
-1. Install RStudio
+## Workflow [for novices]
+
+1. Install RStudio https://rstudio.com/products/rstudio/download/
 
 2. Install git, either via:
-- https://git-scm.com
-- or, if you do not have administrator rights, via conda
 
-3. Follow RStudio's guide to pull a project from GitHub
+i. https://git-scm.com
 
-4. Execute code in accompanying Rmd
+ii. or, if you do not have administrator rights, via `conda`
+
+- follow miniconda2 installation guide for your OS https://conda.io/projects/conda/en/latest/user-guide/install/macos.html
+  
+  - you can use alternative versions of conda. Be aware that:
+    i. python2.7 requires conda2 // python3 requires conda3 (and vice versa)
+    ii. sup code D will need to be alternately configured.
+   
+  - for OS X 10.14.6 (testing machine), python2 is default so miniconda2 is appropriate.
+
+- to add git to your <base> environment, run `conda install git` in Terminal (or its equivalent in your OS)
+
+3. Follow RStudio's guide to pull this project from GitHub
+
+4. Knit the accompanying Rmd files
+
+
+## Additional considerations
+
+### 1. To run supplementary code C, you need to obtain permission to use the GenR dataset.
+
+Raw data for the Dutch Generation R cohort is available upon collaboration request (https://generationr.nl/researchers/collaboration/)
+Contact details: 
+Prof dr. Henriette Moll h.a.moll@erasmusmc.nl
+Prof.dr. Menno van Zelm menno.vanzelm@monash.edu
+
+"GenR.common" file preprocessing: 
+The absolute counts for Generation R data were transformed into "% of parent" frequencies (e.g. "CD4+ T cell", "CD8+ T cells" of "CD19+ B cell") in order to be comparable to the Tanzanian data. The 19 cell types that were comparably gated between the two cohorts were used. Refer to GCRF.GenR for these cell-type names. 
+Convert GenR month of age to "ageAtVisit" variable in weeks. 
+
+
+### 2. To run supplementary code D, the required R libraries need gfortran to compile amd mofapy to run.
+
+- gfortran
+  - gfortran is not present on a fresh OSX install
+  - gfortran is available via conda eg `conda install gfortran_osx-64`
+
+- mofapy
+  - the python library mofapy is available on the bioconda channel
+  - `conda config --add channels bioconda`
+  - `conda install mofapy`
+  - there are several dependencies that are also installed, so this can take a few minutes to complete.
+  - if you are using an alternative installation of python/mofapy see the MOFA vignette to configure
+  
+- some R libraries are only available on bioconductor

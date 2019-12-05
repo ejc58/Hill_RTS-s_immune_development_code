@@ -18,7 +18,7 @@ Provided in the RData file is the Tanzanian data, pre-subsetted for ease of use 
 "Tanz.age" : dataset with 20 cells types identified as significantly different between B0 and B32 in paired analysis (% of parent population) 
 "GCRF.GenR" : dataset with 19 cell types in common to GenR cohort, (cell type frequencies as % of parent gate) from 319 Tanzanian children for which data  was available for each cell type 
 
-Raw data for the Dutch Generation cohort is available upon collaboration request (https://generationr.nl/researchers/collaboration/)
+Raw data for the Dutch Generation R cohort is available upon collaboration request (https://generationr.nl/researchers/collaboration/)
 Contact details: 
 Prof dr. Henriette Moll h.a.moll@erasmusmc.nl
 Prof.dr. Menno van Zelm menno.vanzelm@monash.edu
@@ -27,7 +27,8 @@ Prof.dr. Menno van Zelm menno.vanzelm@monash.edu
 The absolute counts for Generation R data were transformed into "% of parent" frequencies (e.g. "CD4+ T cell", "CD8+ T cells" of "CD19+ B cell") in order to be comparable to the Tanzanian data. The 19 cell types that were comparably gated between the two cohorts were used. Refer to GCRF.GenR for these cell-type names. 
 Convert GenR month of age to "ageAtVisit" variable in weeks. 
 
-## load packages and data
+# load packages and data
+
 ```{r}
 library(tidyverse)
 library(reshape2)
@@ -39,10 +40,11 @@ library(MuMIn)
 library(lme4)
 
 ## download the R data file - add to working directory
-load(file = "Supp_Code_C_Lmer_modelling.RData")
+load(file = "data/Supp_Code_C_Lmer_modelling.RData")
 ```
 
-### Lmer modelling of cell type frequencies in Tanzanian children - Fig 3C. 
+## Lmer modelling of cell type frequencies in Tanzanian children - Fig 3C. 
+
 ```{r}
 # The Tanz.age data-set contains the 20 cells types that were identified as significantly different between B0 and B32 in paired analysis. 
 # This code genereates LMER models, which are used to predict a data set for 20-220 weeks, that is then used to generate the heatmap. 
@@ -97,7 +99,9 @@ height = NA, silent = FALSE)
   # dev.off()
 
 ```
-### Lmer modelling of individual cell types in Tanzanian children - Fig 3D. 
+
+## Lmer modelling of individual cell types in Tanzanian children - Fig 3D. 
+
 ```{r}
 # specify population to graph. Eg: 
 # use model-results for p-value and R^2
@@ -116,15 +120,29 @@ ggplot(data=Tanz.age, aes(x=ageAtVisit, y=(Tanz.age[,pop])))+
   theme_classic()
 
 ```
-# Tanzania vs Dutch children - Figure 5B : Generate Data-sets and perform modelling
+
+## Tanzania vs Dutch children - Figure 5B : Generate Data-sets and perform modelling
 
 Note: Raw data for GenR (Dutch) children is not provided. See code introduction for information about how to access this data.
-The remaining code can be used to generate plots once raw data is obtained. 
+The remaining code can be used to generate plots once raw data is obtained.
+
 ```{r}
 #Subset data to include the following columns - make sure names match between GenR and GCRF data-sets
 common <- c("IGD+27- Bnaive","B memory","IGD-27-","B IgMmem","CD27-IgG+","CD27-IgA+","IGD-27+","IgD-27+IgM+","CD27+IgG+","CD27+IgA+",
             "VD2+","CD4+ Tnaive","CD4+ Tcm","CD4+ TemROtotal","CD4+ TemRA total","CD8+Tnaive","CD8+Tcm","CD8+TemRO total","CD8+TemRA total", 
             "PID","ageAtVisit","sex","study")
+
+########################################################################################################################
+#
+# INSERT GenR data at this stage, having obtained access and normalised it as described in the introduction to this .Rmd
+#
+# Downstream code expects an object called 'GenR.common'
+#
+# This .Rmd will not knit, as this chunk will not run, as 'GenR.common' does not exist on the github version.
+#
+#
+########################################################################################################################
+
 
 # join studies together
 Two.studies.data <- rbind(GenR.common, GCRF.GenR)
@@ -197,7 +215,7 @@ rownames(plotting.GenR) <- colnames(study.data[,11:19])
 colnames(plotting.GenR) <- c(21:125)
 plotting.GenR <- ((plotting.GenR[,] / plotting[,1]))-1
 
-pdf(file = "New GenR heated T.pdf",width=6, height=6)
+#pdf(file = "New GenR heated T.pdf",width=6, height=6) #
 
 pheatmap(plotting.GenR, color = colorRampPalette(rev(brewer.pal(n = 11, name ="Spectral")))(500),breaks = breaksList, 
          border_color = NA, cellwidth = NA, cellheight = NA, scale = "none", cluster_rows = F,cluster_cols = F , show_rownames = T, 

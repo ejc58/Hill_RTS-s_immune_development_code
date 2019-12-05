@@ -2,9 +2,10 @@
 title: 'Supporting code Al '
 author: "Danika Hill"
 date: "21/11/2019"
+output: html_document
 ---
 
-\pagebreak
+# Introduction
 
 This document contains code to use the tSNE defined cluster data: 
   - multidimensional scaling using data from all clusters
@@ -32,16 +33,19 @@ Provided in the RData file are the following dataframes, pre-subsetted for ease 
 "Tanz.vs.Moz" : study bleed B0 (a.k.a M0 or baseline) from Tanzanian and Mozambique children, 108 samples in total.
 "allPops" : the complete dataset, including data from 669 individuals (post QC filtering)
 
-## load packages and data
+# load packages and data
+
 ```{r}
 library(vegan)
 library(ggplot2)
 set.seed(41)
 
 ## download the R data file - add to working directory
-load(file = "Supp_Code_A_tSNE_clusters.RData")
+load(file = "data/Supp_Code_A_tSNE_clusters.RData")
 
 ```
+
+# Figures
 
 ## Figure 1C : MDS of vaccine groups at B3
 ```{r}
@@ -62,7 +66,8 @@ ggplot(data = vaccine.B3, aes(x = xcMDS$points[,1], y = xcMDS$points[,2]))+
   xlab("1st dim of non-metric mutlidimensional scaling (NMDS)")
 ```
 
-# Figure 1D : MDS of vaccine groups at B21
+## Figure 1D : MDS of vaccine groups at B21
+
 ```{r}
 ### In this comparison, the B21 samples are compared between vaccine groups . 
 
@@ -84,7 +89,8 @@ ggplot(data = vaccine.B21, aes(x = xcMDS$points[,1], y = xcMDS$points[,2]))+
   coord_cartesian(ylim = c(-2,1.5), xlim = c(-1.4, 1.1))
 
 ```
-# Fig 2B: MDS of infants vs children
+
+## Fig 2B: MDS of infants vs children
 
 ```{r}
 ### In this comparison, the B3 samples are compared between children and infants from Mozambique. 
@@ -109,7 +115,7 @@ ggplot(data = age.group, aes(x = xcMDS$points[,1], y = xcMDS$points[,2]))+
 
 ```
 
-# Fig 3B: MDS of B0 vs B32 time-points
+## Fig 3B: MDS of B0 vs B32 time-points
 
 ```{r}
 ### In this comparison, the pre-vaccination B0 sample and B32 time-points are compared between children from Tanzania. 
@@ -130,7 +136,8 @@ ggplot(data = B0vsB32, aes(x = xcMDS$points[,1], y = xcMDS$points[,2]))+
   coord_cartesian(ylim = c(-1.5,1), xlim = c(-1.5, 1.5))
 ```
 
-# Fig 6A: MDS of Tanzania vs Mozambique
+## Fig 6A: MDS of Tanzania vs Mozambique
+
 ```{r}
 
 ### In this comparison, the pre-vaccination B0 samples are compared between children from Tanzania and Mozambique. 
@@ -156,7 +163,8 @@ ggplot(data = Tanz.vs.Moz, aes(x = xcMDS$points[,1], y = xcMDS$points[,2]))+
 
 ```
 
-## Subgroup comparisons Fig 1E and 1G : effect of vaccine group on tSNE clusters 
+## Subgroup comparisons Fig 1E and 1G : effect of vaccine group on tSNE clusters
+
 ```{r}
 ## This analysis compares the frequency of each tSNE cluster between samples due to vaccine group, Tanzanian children only
 # Note: The variable "vaccine" has 3 levels: "Control" = C3C
@@ -339,7 +347,9 @@ ggplot(data = plotting, aes(comparison, -log10(pvalues)))+
   scale_y_continuous(expand = c(0, 0))
 
 ```
+
 ## Subgroup comparisons: Fig 2G
+
 ```{r}
 ## This analysis compares the frequency of each tSNE cluster between samples due to age group, Mozambique participants only
 # Note: The variable "agec" has 2 levels: "6-12w" = infants
@@ -404,6 +414,7 @@ ggplot(data = plotting, aes(comparison, -log10(pvalues)))+
 ```
 
 ## Subgroup comparisons: Fig 6C
+
 ```{r}
 ## This analysis compares the frequency of each tSNE cluster between samples due to Country (Tanzania vs Mozambique),Children age-group only only
 # Note: The variable "site" has 2 levels: "BAGAMOYO" = Tanzania

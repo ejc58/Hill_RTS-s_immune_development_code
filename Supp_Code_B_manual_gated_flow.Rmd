@@ -4,7 +4,7 @@ author: "Danika Hill"
 date: "21/11/2019"
 ---
 
-\pagebreak
+# Introduction
 
 This document contains code to use the manual gated flow cytometry data to : 
   - Compare subgroups for the frequency of each cluster independently (e.g. vaccine group, age, country etc). 
@@ -54,7 +54,8 @@ Provided in the RData file are the following dataframes, pre-subsetted for ease 
 
 \pagebreak
 
-## load packages and data
+# load packages and data
+
 ```{r}
 library(tidyverse)
 library(reshape2)
@@ -68,9 +69,13 @@ library(relaimpo)
 library(gplots)
 
 ## download the R data file - add to working directory
-load(file = "Supp_Code_B_manual_gated_flow.RData")
+load(file = "data/Supp_Code_B_manual_gated_flow.RData")
 ```
-## Subgroup comparisons Fig 1F and 1H : effect of vaccine group on cell subset (as % of leukocytes)s 
+
+# Figures
+
+## Subgroup comparisons Fig 1F and 1H : effect of vaccine group on cell subset (as % of leukocytes)
+
 ```{r}
 ## This analysis compares the frequency of each cell subset (as a % of total leukocytes) between samples due to vaccine group, Tanzanian children only
 # Note: The variable "vaccine" has 3 levels: "Control" = C3C
@@ -268,7 +273,9 @@ rm(AdjpValueMatrix_m0_rtss.comp,
              AdjpValueMatrix_m21_splitrtss,
              AdjpValueMatrix_M0m21)
 ```
+
 ## Subgroup comparisons: Fig 2H Infants vs Children
+
 ```{r}
 ## This analysis compares the frequency of each cell subset (as % of leukocytes) between samples due to age group, Mozambique participants only
 # Note: The variable "agec" has 2 levels: "6-12w" = infants
@@ -337,6 +344,7 @@ rm(pvalues,a, b, AdjpValueMatrix_m3_inf.vs.kids, AdjpValueMatrix_m21_inf.vs.kids
 ```
 
 ## Subgroup comparisons: Fig 6C Tanzania vs Mozambique
+
 ```{r}
 ## This analysis compares the frequency of each cell subset (as % of leukocytes) between samples due to Country (Tanzania vs Mozambique),Children age-group only only
 # Note: The variable "site" has 2 levels: "BAGAMOYO" = Tanzania
@@ -418,7 +426,8 @@ ggplot(data = plotting, aes(comparison, -log10(pvalues)))+
 rm(pvalues, plotting, children, AdjpValueMatrix_m0_site,AdjpValueMatrix_m3_site, AdjpValueMatrix_m21_site, AdjpValueMatrix_m32_site, e, f)
 ```
 
-#Heatmaps of cell types : Fig 2C 
+## Heatmaps of cell types : Fig 2C
+
 ```{r}
 ## This code can be used to generate a heatmap of cell types that are significantly different (as % of leukocytes) between samples due to age group, Mozambique participants only
 # Note: The variable "agec" has 2 levels: "6-12w" = infants
@@ -478,7 +487,7 @@ height = NA, silent = FALSE)
 rm(plotting,AdjpValueMatrix, heated, mat_col, mat_colors, a, b, heated.agec, heated.PID, heatpal, signif.children)
 ```
 
-#Heatmaps of cell types : Fig 6B Tanzania vs Mozambique
+## Heatmaps of cell types : Fig 6B Tanzania vs Mozambique
   
 ```{r}
 ## This code can be used to generate a heatmap of cell types that are significantly different (as % of leukocytes) between samples due to country, (Mozambique or Tanzania), children only 
@@ -526,7 +535,8 @@ height = NA, silent = FALSE)
 
 rm(plotting,heated, heat.colors, heated.PID, heated.agec, heatpal, pValueMatrix, pValueMatrixAdj, mat_col, signif.site, mat_colors)
 ```
-# Plot individual cell subsets comparing subgroups: Fig 2E, 6D, 7F, 7G. 
+
+## Plot individual cell subsets comparing subgroups: Fig 2E, 6D, 7F, 7G. 
 
 ```{r}
 ## Fig 2E: individual cell types compared between children and infants at month 3. 
@@ -614,7 +624,8 @@ ggplot(data=plotting, aes(anemic, plotting[,cell.type]))+
 
 rm(plotting, pvalue, cell.type)
 ```
-# Determine the proportion of variance of co-variates using Linear regression : Supp Fig 6 A-B
+
+## Determine the proportion of variance of co-variates using Linear regression : Supp Fig 6 A-B
 
 ```{r}
 ## This code will determine the % of variation explained by "vaccine group" at each time-point. 
@@ -716,7 +727,7 @@ ggplot(Pops.together, aes(time, -log10(Pops.together$p_of_sex)))+
 # dev.off()
 ```
 
-# Determine the proportion of variance of co-variates using Linear regression : Figure 2D Infants vs children
+## Determine the proportion of variance of co-variates using Linear regression : Figure 2D Infants vs children
 
 ```{r}
 for.model <- fullDF[fullDF$site %in% "MANHICA" & fullDF$study.bleed %in% "M3",]
@@ -763,7 +774,7 @@ ggplot(variance, aes(type, variance[,1]))+
 rm(variance, all.models, for.model)
 ```
 
-# Determine the proportion of variance of co-variates using Linear regression : Figure 6G Tanzania vs Mozambique
+## Determine the proportion of variance of co-variates using Linear regression : Figure 6G Tanzania vs Mozambique
 
 ```{r}
 ## this code uses the vector "signif.site.names" which can be generated using the code above in section : "#Heatmaps of cell types : Fig 6B""
@@ -814,7 +825,8 @@ ggplot(variance, aes(type, variance[,1]))+
 
 rm(variance, all.models, for.model)
 ```
-# Compare co-variates between Tanzanian and Mozambique children: Fig 6H-J
+
+## Compare co-variates between Tanzanian and Mozambique children: Fig 6H-J
 
 ```{r}
 ## This analysis uses a much larger data-set from the RTS,S cohort to compare differences between Bagamoyo and Manhica sites. 

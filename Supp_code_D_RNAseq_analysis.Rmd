@@ -1,6 +1,6 @@
 ---
-title: Supp Code D : RNAseq analysis and MOFA
-Author: Danika Hill 
+title: "Supp Code D : RNAseq analysis and MOFA"
+Author: "Danika Hill" 
 date: "21/11/2019"
 ---
 This code includes details for pre-processing and filtering data to be used with the MOFA package: 
@@ -13,7 +13,8 @@ Ricard Argelaguet, Britta Velten, Damien Arnol, Florian Buettner, Wolfgang Huber
 (2019). MOFA: Multi-Omics Factor Analysis (MOFA). R package version 1.0.0.
  https://bioconductor.org/packages/devel/bioc/html/MOFA.html
 
-** NOTE: Code chunks 2 and 3 are provided for reference only - all downstream elements for running MOFA are provided in the RData file 
+** NOTE: Code chunks 3 and 4 are provided for reference only - their outputs required for all downstream elements for running MOFA are provided in the RData file **
+
 
 Included in the RData file are the following variables, lists and dataframes: 
 "annot" : dataframe with sample details of sequenced samples. 
@@ -26,19 +27,34 @@ Included in the RData file are the following variables, lists and dataframes:
 "MOFAobject" : Post-MOFA run file containing the optimal MOFA model used in this study. 
 
 # Load packages and data
+
+NOTE: MOFA is a bioconductor package. To install use the following chunk.
+
+```{r eval = FALSE}
+install.packages("BiocManager")
+BiocManager::install("MOFA", pkgType = "source") # the usage of packrat means a pre-compiled installation can fail, so specifying 'source' is prudent.
+BiocManager::install("MOFAdata", pkgType = "source") # the usage of packrat means a pre-compiled installation can fail, so specifying 'source' is prudent.
+
+```
+
 ```{r}
 # library(Rsubread) # only use if quantifying RNA-seq from scratch
 # library(DESeq2) # only use if quantifying RNA-seq from scratch
 # library(org.Hs.eg.db) # only use if quantifying RNA-seq from scratch
 library(MOFA) 
+library(MOFAdata)
 library(ggplot2)
 library(qusage)
 
-load("Supp_code_D_RNAseq_analysis.RData") # modify for local machine directory
+library(reticulate)
+use_condaenv("miniconda2", conda = "~/opt/miniconda2/bin/conda",required = T) # this assumes you have installed mofapy via miniconda2 to your 'base' environment.
+
+load("data/Supp_code_D_RNAseq_analysis.RData") # modify for local machine directory
 ```
 
 # SAMPLE SELECTION Flow data: normalise cell frequencies using whole cohort and "% of parent population" data (FOR REFERENCE ONLY)
-```{r, eval=FALSE, include=FALSE}
+
+```{r, eval=FALSE, include=TRUE}
 norm.MOFA <- for.MOFA #only cell type data
 
 conf.Int <- matrix(nrow = 61, ncol =6) #initiate matrix
@@ -76,7 +92,8 @@ t.MOFA.parent <-  as.data.frame(t(MOFA)) #transpose so that cell types are row, 
 ```
 
 # SAMPLE selection : Sequencing data (FOR REFERENCE ONLY).
-```{r, eval=FALSE, include=FALSE}
+
+```{r, eval=FALSE, include=TRUE}
 #example code to generate vsn normalised data, this is provided in the Rdata file
 # select files: change the 'path' part to adjust to different samples. Access the raw data for this paper via GEO
 # We align with hisat2 and return bam files:
@@ -139,7 +156,8 @@ colnames(vsd.filtered.matrix) == colnames(t.MOFA.parent)
 ```
 
 #Build MOFA object
-```{r}
+
+```{r, eval = TRUE}
 # This script outlines how to structure and run MOFA model. However the "MOFAobject" included in the RData file is final model used in this manuscript. 
 
 # Create MOFA object
@@ -170,7 +188,7 @@ MOFAlist <- lapply(seq_len(n_inits), function(it) {
 
 compareModels(MOFAlist)
 compareFactors(MOFAlist)
-MOFAobject <- selectModel(MOFAlist, plotit = FALSE)   # final MOFAmodel
+MOFAobject <- MOFA::selectModel(MOFAlist, plotit = FALSE)   # final MOFAmodel
 
 r2 <- calculateVarianceExplained(MOFAobject)
 r2$R2Total
