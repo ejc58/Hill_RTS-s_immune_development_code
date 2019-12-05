@@ -1,0 +1,243 @@
+---
+title: Supp Code D : RNAseq analysis and MOFA
+Author: Danika Hill 
+date: "21/11/2019"
+---
+This code includes details for pre-processing and filtering data to be used with the MOFA package: 
+1. Mean-adjusting flow cytometry data 
+2. RNA-seq library size normalisation and then VSN.
+3. selecting the top 5000 most variable genes
+
+For more information on MOFA: 
+Ricard Argelaguet, Britta Velten, Damien Arnol, Florian Buettner, Wolfgang Huber and Oliver Stegle
+(2019). MOFA: Multi-Omics Factor Analysis (MOFA). R package version 1.0.0.
+ https://bioconductor.org/packages/devel/bioc/html/MOFA.html
+
+** NOTE: Code chunks 2 and 3 are provided for reference only - all downstream elements for running MOFA are provided in the RData file 
+
+Included in the RData file are the following variables, lists and dataframes: 
+"annot" : dataframe with sample details of sequenced samples. 
+"for.MOFA" : untransformed flow data (% of parent population)
+"t.MOFA.parent" : dataframe with transformed celltype frequencies as row, samples as columns 
+"vsd.filtered" : matrix with vsn normalised read counts as rows, samples as columns
+"BTM" <- Blood Transcriptional module gene sets. for gmt file access original paper https://doi.org/10.1038/ni.2789
+"counts" : Raw counts file post Rsubread
+"list.for.MOFA" : List containing flow and rna-seq data after processing 
+"MOFAobject" : Post-MOFA run file containing the optimal MOFA model used in this study. 
+
+# Load packages and data
+```{r}
+# library(Rsubread) # only use if quantifying RNA-seq from scratch
+# library(DESeq2) # only use if quantifying RNA-seq from scratch
+# library(org.Hs.eg.db) # only use if quantifying RNA-seq from scratch
+library(MOFA) 
+library(ggplot2)
+library(qusage)
+
+load("Supp_code_D_RNAseq_analysis.RData") # modify for local machine directory
+```
+
+# SAMPLE SELECTION Flow data: normalise cell frequencies using whole cohort and "% of parent population" data (FOR REFERENCE ONLY)
+```{r, eval=FALSE, include=FALSE}
+norm.MOFA <- for.MOFA #only cell type data
+
+conf.Int <- matrix(nrow = 61, ncol =6) #initiate matrix
+#normalise data - using the mean calculated from the 5-95th percentile of data
+for(i in 1:61){
+  conf.Int[i,1] <- quantile(norm.MOFA[,i], probs=c(0.05), na.rm= T)
+  conf.Int[i,2] <- quantile(norm.MOFA[,i], probs=c(0.95), na.rm= T)
+  conf.Int[i,3] <-  mean(norm.MOFA[((norm.MOFA[,i] > conf.Int[i,1]) & (norm.MOFA[,i] < conf.Int[i,2])),i], na.rm= T)
+  conf.Int[i,4] <-  sd(norm.MOFA[((norm.MOFA[,i] > conf.Int[i,1]) & (norm.MOFA[,i] < conf.Int[i,2])),i], na.rm= T)
+  conf.Int[i,5] <- mad(norm.MOFA[,i], na.rm = T, low = FALSE, high = FALSE)
+  conf.Int[i,6] <- median(norm.MOFA[,i], na.rm = T, low = FALSE, high = FALSE)
+}
+
+#### Mean adjusted z-score
+for(i in 1:61){
+  norm.MOFA[,i] <- (norm.MOFA[,i] - conf.Int[i,3])/(conf.Int[i,4])
+}
+
+#select out data to match the sequencing data: 
+month0keep <- c(2750,2856,2758,2982,2849,2989,2895,2936,2893,2876,2880,2873,2708,2898,3044,2776,2718,2764,2852,2715,3085)
+MOFA.M0 <- norm.MOFA[norm.MOFA$PID %in% month0keep & norm.MOFA$study.bleed %in% "M0",]
+MOFA.M0$PID <- paste(MOFA.M0$PID,"_M0", sep = "") ## add annotation
+
+month32keep <- c(2817,2826,2863,2895,2965,2758,2943,2893,3025)
+MOFA.M32 <- norm.MOFA[norm.MOFA$PID %in% month32keep & norm.MOFA$study.bleed %in% "M32",]
+MOFA.M32$PID <- paste(MOFA.M32$PID,"_M32", sep = "") ## add annotation
+
+# build dataset for MOFA
+MOFA <- rbind(MOFA.M0,MOFA.M32)
+rownames(MOFA) <- MOFA$PID # convert PID to rownames
+MOFA <- MOFA[order(MOFA$PID),]
+MOFA <- MOFA[,1:61] # remove additional columns column
+t.MOFA.parent <-  as.data.frame(t(MOFA)) #transpose so that cell types are row, and samples are columns. 
+                                        # t.MOFA.parent is now ready for use in MOFA
+```
+
+# SAMPLE selection : Sequencing data (FOR REFERENCE ONLY).
+```{r, eval=FALSE, include=FALSE}
+#example code to generate vsn normalised data, this is provided in the Rdata file
+# select files: change the 'path' part to adjust to different samples. Access the raw data for this paper via GEO
+# We align with hisat2 and return bam files:
+
+# fls <- list.files(path = "/XXXX",pattern = 'hisat2.bam$',full.names = T)
+
+#### Read counting
+## the code below can be used to generate "counts", which is included in the Rdata file 
+counts <- featureCounts(files = fls,
+                        # Change the genome if aligned to others:
+                        annot.ext = "/bi/scratch/Genomes/Human/GRCh38_ERCC/Homo_sapiens.GRCh38.87.gtf",
+                        # Metafeatures = T counts at gene level:
+                        isGTFAnnotationFile = T, useMetaFeatures = T, nthreads = 7 )
+
+#### perform variance stabilisation
+dds <- DESeqDataSetFromMatrix(countData = counts$counts, colData = annot, ~ study.bleed)
+vsd <- varianceStabilizingTransformation(dds, blind = F)
+
+### Order by gene variance
+rowVarFilter <- function(x,ntop){
+  rowvars <- apply(assay(x),1,var)
+  rowvars <- rowvars[order(rowvars, decreasing = T)]
+  genes.of.interest <- rowvars[1:ntop]
+  x <- x[names(genes.of.interest),]
+  return(x)
+}
+
+vsd.filtered <-rowVarFilter(vsd,58051)
+# as a matrix 
+vsd.filtered.matrix <- assay(vsd.filtered)
+colnames(vsd.filtered.matrix) <- vsd.filtered$PID
+vsd.filtered.matrix <- vsd.filtered.matrix[,order(vsd.filtered$PID)]
+
+# ##add gene symbols
+symbol <- as.character(mapIds(org.Hs.eg.db,
+                          keys=row.names(vsd.filtered.matrix),
+                             column="SYMBOL",
+                             keytype="ENSEMBL",
+                             multiVals="first"))
+
+## remove any EMSEMBL IDs without gene symbols.
+## This is needed to match the blood transcriptional module gene sets used for downstream analysis
+rownames(vsd.filtered.matrix) <-symbol 
+vsd.filtered.matrix <- vsd.filtered.matrix[!is.na(rownames(vsd.filtered.matrix)),]
+vsd.filtered.matrix <- vsd.filtered.matrix[!duplicated(rownames(vsd.filtered.matrix)),]
+vsd.filtered.matrix <- vsd.filtered.matrix[,order(colnames(vsd.filtered.matrix))]
+
+rowVarFilter2 <- function(x,ntop){
+  rowvars <- apply(x,1,var)
+  rowvars <- rowvars[order(rowvars, decreasing = T)]
+  genes.of.interest <- rowvars[1:ntop]
+  x <- x[names(genes.of.interest),]
+  
+  return(x)
+}
+vsd.filtered.matrix <-rowVarFilter2(vsd.filtered.matrix,5000) # filter for the 5000 most variable genes 
+
+##idiot check that columns are correctly ordered: 
+colnames(vsd.filtered.matrix) == colnames(t.MOFA.parent)
+```
+
+#Build MOFA object
+```{r}
+# This script outlines how to structure and run MOFA model. However the "MOFAobject" included in the RData file is final model used in this manuscript. 
+
+# Create MOFA object
+list.for.MOFA.parent <- list("rnaseq"=as.matrix(vsd.filtered.matrix),"flow"=as.matrix(t.MOFA.parent))
+MOFAobject <- createMOFAobject(list.for.MOFA.parent)
+plotDataOverview(MOFAobject)
+DataOptions <- getDefaultDataOptions()
+
+##Define model options
+ModelOptions <- getDefaultModelOptions(MOFAobject)
+ModelOptions$numFactors <- 25
+ModelOptions
+TrainOptions <- getDefaultTrainOptions()
+TrainOptions$DropFactorThreshold <- 0.02 # Automatically drop factors that explain less than 2% of variance in all omics
+
+###  Prepare MOFA models x10 and select the model with best fit
+n_inits <- 10
+MOFAlist <- lapply(seq_len(n_inits), function(it) {
+    TrainOptions$seed <- 2019 + it
+    MOFAobject <- prepareMOFA(
+    MOFAobject, 
+    DataOptions = DataOptions,
+    ModelOptions = ModelOptions,
+    TrainOptions = TrainOptions
+  )
+    runMOFA(MOFAobject)
+})
+
+compareModels(MOFAlist)
+compareFactors(MOFAlist)
+MOFAobject <- selectModel(MOFAlist, plotit = FALSE)   # final MOFAmodel
+
+r2 <- calculateVarianceExplained(MOFAobject)
+r2$R2Total
+head(r2$R2PerFactor) # Variance explained by each factor in each view
+
+plotVarianceExplained(MOFAobject)
+
+## investigate the factors for genes and cell types. Change factor from to "2" to investigate the second factor
+plotWeights(
+  MOFAobject, 
+  view = "rnaseq", 
+  factor = 1, 
+  nfeatures = 30
+)
+
+plotWeights(
+  MOFAobject, 
+  view = "flow", 
+  factor = 1, 
+  nfeatures = 30
+)
+
+plotTopWeights(
+  MOFAobject, 
+  view="rnaseq",
+  nfeatures=50,
+  factor=1, scale= F
+)
+
+plotTopWeights(
+  MOFAobject, 
+  view="rnaseq",
+  nfeatures=50,
+  factor=1, scale= F
+)
+```
+
+# PATHWAY ANALYSIS using blood transcriptional modules 
+```{r}
+data("reactomeGS", package = "MOFAdata")
+# binary matrix with feature sets in rows and features in columns
+
+# perform enrichment analysis
+gsea <- runEnrichmentAnalysis(
+  MOFAobject,
+  view = "rnaseq",
+  feature.sets = BTM,
+  alpha = 0.05
+)
+
+interestingFactors <- 1:2
+
+fseaplots <- lapply(interestingFactors, function(factor) {
+  plotEnrichment(
+    MOFAobject,
+    gsea,
+    factor = factor,
+    alpha = 0.05,
+    max.pathways = 15 # The top number of pathways to display
+  )
+})
+
+fseaplots[[1]]
+fseaplots[[2]]
+
+cowplot::plot_grid(fseaplots[[2]],
+                   ncol = 1, labels = paste("Factor", interestingFactors))
+
+```
+

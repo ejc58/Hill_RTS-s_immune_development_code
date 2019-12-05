@@ -1,0 +1,433 @@
+---
+title: 'Supporting code C '
+author: "Danika Hill"
+date: "21/11/2019"
+---
+
+\pagebreak
+
+This document contains code to use the Linear mixed effect regression to model cell type frequencies over time. 
+
+This code can be used to recreate the following figures: 
+  Fig 3C
+  Fig 3D
+  Fig 5B
+  Fig 5C
+
+Provided in the RData file is the Tanzanian data, pre-subsetted for ease of use : 
+"Tanz.age" : dataset with 20 cells types identified as significantly different between B0 and B32 in paired analysis (% of parent population) 
+"GCRF.GenR" : dataset with 19 cell types in common to GenR cohort, (cell type frequencies as % of parent gate) from 319 Tanzanian children for which data  was available for each cell type 
+
+Raw data for the Dutch Generation cohort is available upon collaboration request (https://generationr.nl/researchers/collaboration/)
+Contact details: 
+Prof dr. Henriette Moll h.a.moll@erasmusmc.nl
+Prof.dr. Menno van Zelm menno.vanzelm@monash.edu
+
+"GenR.common" file preprocessing: 
+The absolute counts for Generation R data were transformed into "% of parent" frequencies (e.g. "CD4+ T cell", "CD8+ T cells" of "CD19+ B cell") in order to be comparable to the Tanzanian data. The 19 cell types that were comparably gated between the two cohorts were used. Refer to GCRF.GenR for these cell-type names. 
+Convert GenR month of age to "ageAtVisit" variable in weeks. 
+
+## load packages and data
+```{r}
+library(tidyverse)
+library(reshape2)
+library(ggplot2)
+library(RColorBrewer)
+library(gridExtra)
+library(pheatmap)
+library(MuMIn)
+library(lme4)
+
+## download the R data file - add to working directory
+load(file = "Supp_Code_C_Lmer_modelling.RData")
+```
+
+### Lmer modelling of cell type frequencies in Tanzanian children - Fig 3C. 
+```{r}
+# The Tanz.age data-set contains the 20 cells types that were identified as significantly different between B0 and B32 in paired analysis. 
+# This code genereates LMER models, which are used to predict a data set for 20-220 weeks, that is then used to generate the heatmap. 
+
+model.results <- matrix(data = 0, ncol = 6, nrow = 20) #Initiate Matrix
+colnames(model.results) <- c("int.Tanz","slopeTanz", "pvalue.age","pvalue.sex", "marginal.r2", "cond.R2")
+row.names(model.results) <- colnames(Tanz.age[,1:20])  # name rows with cell_types
+
+for (i in 1:20){
+lmer_age <- lmer(Tanz.age[,i] ~ ageAtVisit + sex+ (1|PID), REML=FALSE, data=Tanz.age)
+lmer_sex <- lmer(Tanz.age[,i] ~ sex+ (1|PID), REML=FALSE, data=Tanz.age)
+nullmodel <- lmer(Tanz.age[,i] ~ (1|PID), REML=FALSE, data=Tanz.age)
+model.results[i,1] <- (summary(lmer_age))$coefficients[1,1] #intercept Tanz
+model.results[i,2] <- (summary(lmer_age))$coefficients[2,1] #slope Tanz
+model.results[i,3] <-  (anova(nullmodel, lmer_sex, lmer_age))$Pr[3]# pvalue for age effects
+model.results[i,4] <-  (anova(nullmodel, lmer_sex, lmer_age))$Pr[2]# pvalue for sex effects
+model.results[i,5] <-  r.squaredGLMM(lmer_age)[1,1] #marginal r squared 
+model.results[i,6] <-  r.squaredGLMM(lmer_age)[1,2] #conditional r squared 
+}
+model.results[,3] <- p.adjust(model.results[,3], method = "fdr")  # adjust p-values for multiple comparisons
+model.results[,4] <- p.adjust(model.results[,4], method = "fdr")  # adjust p-values for multiple comparisons
+
+model.results <- data.frame(model.results) # Note: use p-values and R^2 from model.results to generate the annotation boxes for Figure 3C. 
+
+# use the slope and intersect data to predict the frequency of each cell type between week 20-220. 
+Tanz.model = matrix(nrow=201, ncol = 20)  
+for (i in 1:20){
+for (p in 20:220){
+Tanz.model[p-20,i] = model.results$int.Tanz[i]+ (model.results$slopeTanz[i]*p)
+}}
+
+# generate heatmap: 
+plotting <- as.matrix(t(Tanz.model[,]))
+rownames(plotting) <- colnames(Tanz.age[,1:20])
+colnames(plotting) <- c(20:220)
+plotting <- ((plotting[,] / plotting[,1]))-1  ###normalise to week 20 values
+breaksList <- seq(from = -0.5, to = 3.5, by = 4/499)
+
+  # pdf(file = "Tanz all heated.pdf", width=7, height=4)
+p <- pheatmap(plotting, color = colorRampPalette(rev(brewer.pal(n = 11, name ="Spectral")))(500), kmeans_k = NA, breaks = breaksList, border_color = NA,
+cellwidth = NA, cellheight = NA, scale = "none", cluster_rows = TRUE,
+cluster_cols = FALSE, clustering_distance_rows = "euclidean",
+clustering_distance_cols = F, clustering_method = "complete", cutree_rows = 3, cutree_cols =2,
+legend = TRUE, legend_breaks = NA,
+legend_labels = NA, annotation_row = NA, 
+annotation_names_row = TRUE, annotation_names_col = TRUE,
+drop_levels = TRUE, show_rownames = T, show_colnames = F, main = NA,
+fontsize = 10, display_numbers = F, number_format = "%.2f", number_color = "grey30",
+fontsize_number = 0.8 * fontsize, gaps_row = NULL, gaps_col = NULL,
+labels_row = NULL, labels_col = NULL, filename = NA, width = NA,
+height = NA, silent = FALSE)
+  # dev.off()
+
+```
+### Lmer modelling of individual cell types in Tanzanian children - Fig 3D. 
+```{r}
+# specify population to graph. Eg: 
+# use model-results for p-value and R^2
+pop <- 10   #"43_Transitional.Bcells" 
+pop <- 4   #" "32_CD27pos.Bmem"
+pop <- 16 #"63_CD4.Tcm"  
+
+pop.name <- names(Tanz.age)[pop]
+pop.name
+
+ggplot(data=Tanz.age, aes(x=ageAtVisit, y=(Tanz.age[,pop])))+
+  geom_point(size=2.5, pch= 21, show.legend = F)+
+  geom_abline(aes(intercept=model.results$int.Tanz[pop], slope=model.results$slopeTanz[pop]), colour="red", size=1.5)+
+  coord_cartesian(xlim = c(20,220))+
+  ylab(paste(pop.name,"(% of parent)", sep = " ")) + xlab("")+ 
+  theme_classic()
+
+```
+# Tanzania vs Dutch children - Figure 5B : Generate Data-sets and perform modelling
+
+Note: Raw data for GenR (Dutch) children is not provided. See code introduction for information about how to access this data.
+The remaining code can be used to generate plots once raw data is obtained. 
+```{r}
+#Subset data to include the following columns - make sure names match between GenR and GCRF data-sets
+common <- c("IGD+27- Bnaive","B memory","IGD-27-","B IgMmem","CD27-IgG+","CD27-IgA+","IGD-27+","IgD-27+IgM+","CD27+IgG+","CD27+IgA+",
+            "VD2+","CD4+ Tnaive","CD4+ Tcm","CD4+ TemROtotal","CD4+ TemRA total","CD8+Tnaive","CD8+Tcm","CD8+TemRO total","CD8+TemRA total", 
+            "PID","ageAtVisit","sex","study")
+
+# join studies together
+Two.studies.data <- rbind(GenR.common, GCRF.GenR)
+Two.studies.data<- Two.studies.data[,common]
+
+# include only data from  week 21-125
+study.data <- Two.studies.data[Two.studies.data$ageAtVisit<125 & Two.studies.data$ageAtVisit>21,] #limit only to age range of interest
+
+# perform lmer models
+model.results <- matrix(data = 0, ncol = 9, nrow = 19)
+model.results <- data.frame(model.results)
+colnames(model.results) <- c("int.GCRF","int.GenR","slopeGCRF", "slopeGenR", "GCRF.SE", "GenR.SE", "pvalue.study", "pvalue.interaction", "pvalue.sex")
+row.names(model.results) <- colnames(study.data[,1:19])
+
+for (i in 1:19){
+model0<-lmer(study.data[,i]~ageAtVisit+(1|PID), data=study.data, REML=FALSE)
+model1<-lmer(study.data[,i]~ageAtVisit+sex+(1|PID), data=study.data, REML=FALSE)
+model2<-lmer(study.data[,i]~ageAtVisit+study+sex+(1|PID), data=study.data, REML=FALSE)
+model3<-lmer(study.data[,i]~ageAtVisit*study+sex+(1|PID), data=study.data, REML=FALSE)
+anova(model0, model1, model2, model3)
+model.results[i,1] <- (summary(model3))$coefficients[1,1] #intercept GCRF
+model.results[i,2] <- (summary(model3))$coefficients[1,1] + (summary(model3))$coefficients[3,1]#intercept GenR 
+model.results[i,3] <- (summary(model3))$coefficients[2,1] #slope GCRF
+model.results[i,4] <- (summary(model3))$coefficients[2,1] +(summary(model3))$coefficients[5,1] #slope GenR
+model.results[i,5] <- (summary(model3))$coefficients[1,2] #GCRF-SE
+model.results[i,6] <-  (summary(model3))$coefficients[3,2] #GenR -SE
+model.results[i,7] <-  (anova(model0, model1, model2, model3))$Pr[3]# pvalue for difference between studies
+model.results[i,8] <-  (anova(model0, model1, model2, model3))$Pr[4]#pvalue for interactions (ageAtVisit * study) 
+model.results[i,9] <- (anova(model0, model1, model2, model3))$Pr[2]#pvalue for sex
+}
+model.results$pvalue.study.fdr <- p.adjust(model.results$pvalue.study,"fdr")
+model.results$pvalue.interaction.fdr <- p.adjust(model.results$pvalue.interaction,"fdr")
+model.results$pvalue.sex.fdr <- p.adjust(model.results$pvalue.sex,"fdr")
+
+# use the results of the lmer models to generate a predicted data set that spans 21-125 weeks of age
+GCRF.model = matrix(nrow=105, ncol = 19)  
+for (i in 1:19){
+for (p in 21:125){
+GCRF.model[p-20,i] = model.results$int.GCRF[i]+ (model.results$slopeGCRF[i]*p)
+}}
+
+GenR.model = matrix(nrow=105, ncol = 19)  
+for (i in 1:19){
+for (p in 21:125){
+GenR.model[p-20,i] = model.results$int.GenR[i]+ (model.results$slopeGenR[i]*p)
+}}
+
+```
+
+# Tanzania vs Dutch children - Figure 5B : generate heatmaps of T cells 
+
+```{r}
+breaksList <- seq(from = -1.0, to = 4.5, by = 5.5/499)  #use for heatmaps colour
+
+#Tanzanian data first
+plotting <- as.matrix(t(GCRF.model[,]))
+plotting <- plotting[11:19,] # pull out only T cell subsets 
+rownames(plotting) <- colnames(study.data[,11:19]) # pull out only T cell subsets names
+colnames(plotting) <- c(21:125)
+plotting.norm <- ((plotting[,] / plotting[,1]))-1 # normalise to Week 21
+
+pheatmap(plotting.norm, color = colorRampPalette(rev(brewer.pal(n = 11, name ="Spectral")))(500),breaks = breaksList, 
+         border_color = NA, cellwidth = NA, cellheight = NA, scale = "none", cluster_rows = F,cluster_cols = F , show_rownames = T, 
+         show_colnames = F, fontsize = 10, display_numbers = F, number_format = "%.2f", number_color = "grey30",
+         fontsize_number = 0.8 * fontsize, gaps_row = NULL, gaps_col = NULL,silent = FALSE)
+
+#GenR data
+plotting.GenR <- as.matrix(t(GenR.model[,11:19]))
+rownames(plotting.GenR) <- colnames(study.data[,11:19])
+colnames(plotting.GenR) <- c(21:125)
+plotting.GenR <- ((plotting.GenR[,] / plotting[,1]))-1
+
+pdf(file = "New GenR heated T.pdf",width=6, height=6)
+
+pheatmap(plotting.GenR, color = colorRampPalette(rev(brewer.pal(n = 11, name ="Spectral")))(500),breaks = breaksList, 
+         border_color = NA, cellwidth = NA, cellheight = NA, scale = "none", cluster_rows = F,cluster_cols = F , show_rownames = T, 
+         show_colnames = F, fontsize = 10, display_numbers = F, number_format = "%.2f", number_color = "grey30",
+         fontsize_number = 0.8 * fontsize, gaps_row = NULL, gaps_col = NULL,silent = FALSE)
+
+#print out p-values for T cell pops in order
+model.results[11:19,"pvalue.sex"]
+model.results[11:19,"pvalue.study.fdr"]
+model.results[11:19,"pvalue.interaction.fdr"]
+rownames(model.results[11:19,])
+```
+
+# Tanzania vs Dutch children - Figure 5B  : generate heatmaps of B cells 
+
+```{r}
+breaksList <- seq(from = -1.0, to = 6.5, by = 7.5/499) #use for heatmaps colour
+
+#Tanzanian data first
+plotting <- as.matrix(t(GCRF.model[,1:10]))
+rownames(plotting) <- colnames(study.data[,1:10])
+colnames(plotting) <- c(21:125)
+plotting.norm <- ((plotting[,] / plotting[,1]))-1
+
+pheatmap(plotting.norm, color = colorRampPalette(rev(brewer.pal(n = 11, name ="Spectral")))(500),breaks = breaksList, 
+         border_color = NA, cellwidth = NA, cellheight = NA, scale = "none", cluster_rows = F,cluster_cols = F , show_rownames = T, 
+         show_colnames = F, fontsize = 10, display_numbers = F, number_format = "%.2f", number_color = "grey30",
+         fontsize_number = 0.8 * fontsize, gaps_row = NULL, gaps_col = NULL,silent = FALSE)
+
+#GenR data
+plotting.GenR <- as.matrix(t(GenR.model[,1:10]))
+rownames(plotting.GenR) <- colnames(study.data[,1:10])
+colnames(plotting.GenR) <- c(21:125)
+plotting.GenR <- plotting.GenR[1:10,]
+plotting.GenR <- ((plotting.GenR[,] / plotting[,1]))-1
+
+pheatmap(plotting.GenR, color = colorRampPalette(rev(brewer.pal(n = 11, name ="Spectral")))(500),breaks = breaksList, 
+         border_color = NA, cellwidth = NA, cellheight = NA, scale = "none", cluster_rows = F,cluster_cols = F , show_rownames = T, 
+         show_colnames = F, fontsize = 10, display_numbers = F, number_format = "%.2f", number_color = "grey30",
+         fontsize_number = 0.8 * fontsize, gaps_row = NULL, gaps_col = NULL,silent = FALSE)
+
+#print out p-values for B cell pops in order
+model.results[1:10,"pvalue.sex"]
+model.results[1:10,"pvalue.study.fdr"]
+model.results[1:10,"pvalue.interaction.fdr"]
+
+```
+# Tanzanian vs Dutch - Figure 5C : Individual cell types
+```{r}
+#set theme
+theme_set(theme_bw()+
+  theme(axis.line = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(colour = "black", size = 1),
+    panel.background = element_blank(), 
+    axis.text=element_text(size=12), 
+    axis.title=element_text(size=14), 
+    plot.margin=grid::unit(c(10,5,0,5), "mm")))
+
+pop <- 12 # change this to generate plots of different cell types
+
+pop.name <- names(study.data)[pop]
+pop.name
+
+ggplot(data=study.data, aes(x=study.data$ageAtVisit, y=study.data[,pop], colour=study))+
+  scale_colour_manual(values=c("black", "blue"))+
+  geom_point(size=2.5, alpha = 0.4, show.legend = F)+
+  geom_abline(aes(intercept=model.results$int.GCRF[pop], slope=model.results$slopeGCRF[pop]), colour="black", size=1.5)+
+  geom_abline(aes(intercept=model.results$int.GenR[pop], slope=model.results$slopeGenR[pop]), colour="blue", size=1.5)+
+  scale_x_continuous(expand = c(0, 0))+
+  scale_y_continuous(expand = c(0, 0))+
+  coord_cartesian(xlim = c(20,127), ylim = c(0,100))+ ## change the ylim for each cell type as necessary
+  ylab(paste(pop.name,"(% of parent)", sep = " ")) + xlab("")
+
+```
+
+# Diffusion pseudotime analysis - Fig 5D-G
+The method used here is based on the approach used in the following paper: 
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6686855/
+A clinically meaningful metric of immune age derived from high-dimensional longitudinal monitoring
+Ayelet Alpert et al. Nat Med. 2019 Mar; 25(3): 487–495.  
+
+```{r}
+study.data <- Two.studies.data
+
+# GenR
+norm.study <- study.data[study.data$study %in% "GenR",] #select out only GenR data
+
+conf.Int <- matrix(nrow = 19, ncol =4)
+for(i in 1:19){
+conf.Int[i,1] <- quantile(norm.study[,i], probs=c(0.1), na.rm= T) # 10th percentile
+conf.Int[i,2] <- quantile(norm.study[,i], probs=c(0.9), na.rm= T) # 90th Percentile
+conf.Int[i,3] <-  mean(norm.study[((norm.study[,i] > conf.Int[i,1]) & (norm.study[,i] < conf.Int[i,2])),i], na.rm= T) # determine mean of data within 90th percentile 
+conf.Int[i,4] <-  sd(norm.study[((norm.study[,i] > conf.Int[i,1]) & (norm.study[,i] < conf.Int[i,2])),i], na.rm= T) # determine st dev of data within 90th percentile 
+}
+for(i in 1:19){
+  norm.study[,i] <- (norm.study[,i] - conf.Int[i,3])/conf.Int[i,4] #normalise GenR data using this mean and stdev
+}
+GenR <- norm.study #write out new data-set
+
+# apply mean and stdev from GenR to normalise GCRF data
+norm.study <- study.data[study.data$study %in% "GCRF",]
+for(i in 1:19){
+  norm.study[,i] <- (norm.study[,i] - conf.Int[i,3])/conf.Int[i,4] #normalise GCRF data
+}
+GCRF <- norm.study
+
+# Build one data-frame 
+Both.normalised <- rbind(GenR,GCRF) 
+
+# Perform PCA
+study.pca <- prcomp(Both.normalised[,c(1:19)], center = TRUE,scale. = TRUE)
+df_out <- as.data.frame(study.pca$x) #create dataframe of PC coprdinates
+df_out$ageAtVisit <- norm.study$ageAtVisit # add covariates
+df_out$group <- norm.study$study # add covariates
+df_out$agec <- norm.study$agec # add covariates
+
+# Plot PCA data:
+ggplot(df_out,aes(x=PC1,y=PC2,color=df_out$ageAtVisit )) +geom_point() # PC1 = ageAtVisit
+
+#keep only vars which correlate with PC1 = "AGE"
+var <- get_pca_var(study.pca)
+var$coord[,1:2]
+which.vars <- as.data.frame(var$coord[,1:2])
+which.vars <- which.vars[(which.vars$Dim.1 < c(-0.5)) |(which.vars$Dim.1 > c(0.5)) , ] # filter for cell types that correlate greater than 0.5 with PCR 
+keep.vars <- row.names(which.vars) # 18 variables fally within this range and are used to create diffusion pseudotime. 
+
+################# Diffusion map
+
+GenR <- Both.normalised[Both.normalised$study %in% "GenR",]
+GCRF.Bag <- Both.normalised[Both.normalised$study %in% "GCRF" & Both.normalised$site %in% "BAGAMOYO",]
+study.data <- rbind(GenR, GCRF.Bag) # build post normalisation data-frame of 2222 samples
+study.data$study <- as.factor(study.data$study)
+
+dm <- DiffusionMap(study.data[,keep.vars]) # create diffusion map using 18 variables
+dpt <- DPT(dm) # diffusion pseudotime
+study.data$DC1 <- dm$DC1 #add coordinates to dataset
+study.data$DC2 <- dm$DC2 #add coordinates to dataset
+study.data$DC3 <- dm$DC3 #add coordinates to dataset
+
+#calculate pseudotime and rescale 
+pseudo <-  dpt@dm@sigmas@optimal_sigma #create pseudotime variable
+range01 <- function(x){(x-min(x))/(max(x)-min(x))} #rescale function
+pseudotime <- range01(pseudo)
+study.data$pseudotime <- pseudotime #add normalised pseudotime to dataset
+
+# evaluate all datapoints: Fig 5D
+ggplot(study.data, aes(DC1, DC2, colour = pseudotime))+
+  geom_point(alpha = 1, cex = 1)+
+  theme_bw()+
+  scale_color_viridis_c(begin = 1, end = 0.3)+
+  coord_cartesian(xlim = c(-0.04, 0.0605), ylim = c(-0.05, 0.1005))+
+  scale_x_continuous(expand = c(0, 0))+
+  scale_y_continuous(expand = c(0, 0))+
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank())
+
+# evaluate the 20-125 wk time-point for each study:  Fig 5D
+plotting <- study.data[study.data$ageAtVisit<125 & study.data$ageAtVisit>20,]
+
+ggplot(plotting, aes(DC1, DC2, colour = pseudotime))+
+  geom_point(alpha = 1, cex = 1)+
+  theme_bw()+
+  scale_color_viridis_c(begin = 1, end = 0.3)+
+  coord_cartesian(xlim = c(-0.04, 0.0605), ylim = c(-0.05, 0.1005))+
+  scale_x_continuous(expand = c(0, 0))+
+  scale_y_continuous(expand = c(0, 0))+
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank())+
+  facet_grid(~study)
+  
+# plot cell types against diffusion map: Fig 5E
+ggplot(study.data, aes(DC1, DC2, colour = study.data$`IGD+27- Bnaive`))+
+  geom_point(alpha = 0.8, cex = 1)+
+  theme_bw()+
+  scale_color_viridis_c(option = "magma", begin = 1, end = 0.45)+
+  coord_cartesian(xlim = c(-0.04, 0.0605), ylim = c(-0.05, 0.1005))+
+  scale_x_continuous(expand = c(0, 0))+
+  scale_y_continuous(expand = c(0, 0))+
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank())
+
+# plot Age against diffusion map: Supp Fig 11
+ggplot(study.data, aes(DC1, DC2, colour = ageAtVisit))+
+  geom_point(alpha = 1, cex = 1)+
+  theme_bw()+
+  scale_color_viridis_c(begin = 1, end = 0.3)+
+  coord_cartesian(xlim = c(-0.04, 0.0605), ylim = c(-0.05, 0.1005))+
+  scale_x_continuous(expand = c(0, 0))+
+  scale_y_continuous(expand = c(0, 0))+
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank())+
+  facet_grid(~study)
+
+# violin plots for pseudotime vs study  Fig 5F
+ggplot(plotting, aes(study, pseudotime, col = study))+
+  geom_violin(scale = "width") +
+  geom_jitter(width = 0.1, alpha = 0.75,cex = 2, pch = 21) +
+  scale_colour_manual(values = c("black", "blue"))+
+  stat_summary(fun.y = "median", geom = "point")+
+  theme_classic()+
+  coord_cartesian(ylim = c(0, 0.5))+
+  scale_y_continuous(expand = c(0, 0))
+
+wilcox.test(plotting[plotting$study %in% "GCRF",]$pseudotime, 
+            plotting[plotting$study %in% "GenR",]$pseudotime, paired = F) # determine p-value
+
+# violin plots for Age vs study  Fig 5G
+ggplot(plotting, aes(study, ageAtVisit, col = study))+
+  geom_violin(scale = "width") +
+  geom_jitter(width = 0.1, alpha = 0.75,cex = 2, pch = 21) +
+  scale_colour_manual(values = c("black", "blue"))+
+  stat_summary(fun.y = "median", geom = "point")+
+  theme_classic()
+  coord_cartesian(ylim = c(0, 0.5))+
+  scale_y_continuous(expand = c(0, 0))
+
+  wilcox.test(plotting[plotting$study %in% "GCRF",]$ageAtVisit, 
+              plotting[plotting$study %in% "GenR",]$ageAtVisit, paired = F) # determine p-value
+  
+# determine which cell subsets correlate with pseudotime
+correlation <- matrix(data = 0, ncol = 2, nrow = 19)
+for (i in 1:19){
+correlation[i,1] <-cor.test(x = study.data[,i], y = study.data[,"pseudotime"], 
+                            method = c("spearman"))$estimate
+correlation[i,2] <-cor.test(x = study.data[,i], y = study.data[,"pseudotime"], 
+                            method = c("spearman"))$p.value
+}
+rownames(correlation) <- colnames(study.data[,1:19])
+#plot as a heatmap
+breaksList <- seq(from = -1.0, to = 1, by = 2/20)
+correlation <- correlation[rev(order(correlation[,1])),]
+
+pheatmap(correlation, color = colorRampPalette(rev(brewer.pal(n = 10, name ="Spectral")))(20),
+         cluster_cols = F, cluster_rows = F, breaks = breaksList)
+```

@@ -1,0 +1,481 @@
+---
+title: 'Supporting code Al '
+author: "Danika Hill"
+date: "21/11/2019"
+---
+
+\pagebreak
+
+This document contains code to use the tSNE defined cluster data: 
+  - multidimensional scaling using data from all clusters
+  - Compare subgroups for the frequency of each cluster independently (e.g. vaccine group, age, country etc) 
+  
+This code can be used to recreate the following figures: 
+
+Multi-dimensional scaling (MDS): 
+    Fig 1C
+    Fig 1D
+    Fig 2B
+    Fig 3B
+    Fig 6A
+
+Subgroup comparisons: 
+    Fig 1G
+    Fig 2G
+    Fig 6C
+
+Provided in the RData file are the following dataframes, pre-subsetted for ease of use : 
+"vaccine.B3" : study bleed B3 (a.k.a M3) samples for 81 Tanzanian Children. 
+"vaccine.B21": study bleed B3 (a.k.a M3) samples for 101 Tanzanian Children.
+"age.group" :  study bleed B3 (a.k.a M3) samples from 85 Mozambique children and infants. 
+"B0vsB32" : study bleed B0 (a.k.a M0 or baseline) and B32 (a.k.a M32) from Tanzanian children, 187 samples in total. 
+"Tanz.vs.Moz" : study bleed B0 (a.k.a M0 or baseline) from Tanzanian and Mozambique children, 108 samples in total.
+"allPops" : the complete dataset, including data from 669 individuals (post QC filtering)
+
+## load packages and data
+```{r}
+library(vegan)
+library(ggplot2)
+set.seed(41)
+
+## download the R data file - add to working directory
+load(file = "Supp_Code_A_tSNE_clusters.RData")
+
+```
+
+## Figure 1C : MDS of vaccine groups at B3
+```{r}
+### In this comparison, the B21 samples are compared between vaccine groups . 
+
+# B3 timepoint : correlate all tSNE clusters with one-another and perform MDS
+vaccine.B3.cor <- cor(t(vaccine.B3[,(grepl(colnames(vaccine.B3), pattern = "Pop"))  ]), method = "spearman")
+d <- dist(vaccine.B3.cor)
+xcMDS <- monoMDS(d, k =2)
+
+#plot Multidimensional scaled data 
+ggplot(data = vaccine.B3, aes(x = xcMDS$points[,1], y = xcMDS$points[,2]))+
+  theme_classic() +
+  geom_point(show.legend = T, shape = 21, size = 2)+
+  aes(fill = vaccine.B3$vaccine.short) +
+  scale_fill_manual(values = c("#FFFFFF","#000000"))+
+  ylab("2nd dim of NMDS")+
+  xlab("1st dim of non-metric mutlidimensional scaling (NMDS)")
+```
+
+# Figure 1D : MDS of vaccine groups at B21
+```{r}
+### In this comparison, the B21 samples are compared between vaccine groups . 
+
+# B21 timepoint : correlate all tSNE clusters with one-another and perform MDS
+vaccine.B21.cor <- cor(t(vaccine.B21[,(grepl(colnames(vaccine.B21), pattern = "Pop"))  ]), method = "spearman")
+
+set.seed(41)
+d <- dist(vaccine.B21.cor)
+xcMDS <- monoMDS(d, k =2)
+
+#plot MDS data
+ggplot(data = vaccine.B21, aes(x = xcMDS$points[,1], y = xcMDS$points[,2]))+
+  theme_classic() +
+  geom_point(show.legend = T, shape = 21, size = 2)+
+  aes(fill = vaccine.B21$vaccine) +
+  scale_fill_manual(values = c("#FFFFFF","#000000","#969696"))+
+  ylab("2nd dim of NMDS")+
+  xlab("1st dim of non-metric mutlidimensional scaling (NMDS)")+
+  coord_cartesian(ylim = c(-2,1.5), xlim = c(-1.4, 1.1))
+
+```
+# Fig 2B: MDS of infants vs children
+
+```{r}
+### In this comparison, the B3 samples are compared between children and infants from Mozambique. 
+
+# B21 timepoint : correlate all tSNE clusters with one-another and perform MDS
+age.group.cor <- cor(t(age.group[,(grepl(colnames(age.group), pattern = "Pop"))  ]), method = "spearman")
+set.seed(42)
+d <- dist(age.group.cor)
+fit <- cmdscale(d, eig=T, k =2)
+xcMDS <- monoMDS(d, k =2)
+
+#plot MDS data
+
+ggplot(data = age.group, aes(x = xcMDS$points[,1], y = xcMDS$points[,2]))+
+  theme_classic() +
+  geom_point(show.legend = F, width = 0.2, shape = 21, size = 2)+
+  aes(fill = age.group$agec) +
+  scale_fill_manual(values = c("#FFFFFF","#000000"))+
+  ylab("2nd dim of NMDS")+
+  xlab("1st dim of non-metric mutlidimensional scaling (NMDS)")+
+  coord_cartesian(ylim = c(-2.5,1), xlim = c(-1.7, 3))
+
+```
+
+# Fig 3B: MDS of B0 vs B32 time-points
+
+```{r}
+### In this comparison, the pre-vaccination B0 sample and B32 time-points are compared between children from Tanzania. 
+## Generate correlation dataset and perform MDS
+B0vsB32.cor <- cor(t(B0vsB32[,(grepl(colnames(B0vsB32), pattern = "Pop"))  ]), method = "spearman")
+set.seed(400) 
+d <- dist(B0vsB32.cor)
+fit <- cmdscale(d, eig=T, k =2)
+xcMDS <- monoMDS(d, k =2)
+
+ggplot(data = B0vsB32, aes(x = xcMDS$points[,1], y = xcMDS$points[,2]))+
+  theme_classic() +
+  geom_point(show.legend = F, width = 0.2, shape = 21)+
+  aes(fill = B0vsB32$study.bleed) +
+  scale_fill_manual(values = c("#D9D9D9","#000000"))+
+  ylab("2nd dim of NMDS")+
+  xlab("1st dim of non-metric mutlidimensional scaling (NMDS)")+
+  coord_cartesian(ylim = c(-1.5,1), xlim = c(-1.5, 1.5))
+```
+
+# Fig 6A: MDS of Tanzania vs Mozambique
+```{r}
+
+### In this comparison, the pre-vaccination B0 samples are compared between children from Tanzania and Mozambique. 
+## Note: Bagamoyo is Tanzania, Manhica is Mozambique
+
+## Generate correlation dataset and perform MDS
+Tanz.vs.Moz.cor <- cor(t(Tanz.vs.Moz[,(grepl(colnames(Tanz.vs.Moz), pattern = "Pop"))  ]), method = "spearman")
+d <- dist(Tanz.vs.Moz.cor)
+fit <- cmdscale(d, eig=T, k =2)
+
+#plotting monoMDS
+set.seed(400)
+xcMDS <- monoMDS(d, k =2)
+
+ggplot(data = Tanz.vs.Moz, aes(x = xcMDS$points[,1], y = xcMDS$points[,2]))+
+  theme_classic() +
+  geom_point(show.legend = F, width = 0.4, shape = 20)+
+  aes(colour = Tanz.vs.Moz$site) +
+  scale_colour_manual(values = c("#969696","#000000"))+
+  ylab("2nd dim of NMDS")+
+  xlab("1st dim of non-metric mutlidimensional scaling (NMDS)")
+  coord_cartesian(ylim = c(-1.5,1), xlim = c(-1.5, 2))
+
+```
+
+## Subgroup comparisons Fig 1E and 1G : effect of vaccine group on tSNE clusters 
+```{r}
+## This analysis compares the frequency of each tSNE cluster between samples due to vaccine group, Tanzanian children only
+# Note: The variable "vaccine" has 3 levels: "Control" = C3C
+#                                             "RTS,S/AS01E primary schedule with booster"  = R3R
+#                                             "RTS,S/AS01E primary schedule without booster" = R3C
+#       The variable "vaccine.short" has 2 levels: "Control" = C3C
+#                                                  "RTS,S"  = R3R & R3C
+
+Baga <- allPops[allPops$site %in% "BAGAMOYO" ,] ## select Tanzanian children
+
+## these vectors will be called in the code below to compare groups. 
+a <- unique(Baga[ Baga$study.bleed %in% "M0",]$PID)
+b <- unique(Baga[ Baga$study.bleed %in% "M3",]$PID)
+c <- unique(Baga[ Baga$study.bleed %in% "M21",]$PID)
+d <- unique(Baga[ Baga$study.bleed %in% "M32",]$PID)
+e <- unique(Baga[Baga$vaccine.short %in% "Control",]$PID)
+f <- unique(Baga[Baga$vaccine.short %in% "RTS,S",]$PID)
+g <- unique(Baga[Baga$vaccine %in% "Control",]$PID)
+h <- unique(Baga[Baga$vaccine %in% "RTS,S/AS01E primary schedule with booster",]$PID)
+j <- unique(Baga[Baga$vaccine %in% "RTS,S/AS01E primary schedule without booster",]$PID)
+pops <- colnames(Baga[grepl(colnames(Baga), pattern = "Pop")])
+
+# Compare month 0 to month 3 for all samples (paired analysis)
+pidOfInterest <- intersect(a,b)
+pValueMatrix_m0m3 = matrix(data = 0, ncol = 336, nrow = 1) #initialize matrix
+for (i in 1:336) {
+    pValueMatrix_m0m3[1,i] = wilcox.test(Baga[Baga$PID %in% pidOfInterest & Baga$study.bleed %in% "M0" , pops[i]], 
+                                         Baga[Baga$PID %in% pidOfInterest & Baga$study.bleed %in% "M3" , pops[i]], 
+                                         paired=T, alternative="t")$p.value
+}
+AdjpValueMatrix_m0m3<- p.adjust(pValueMatrix_m0m3,"bonferroni")
+
+#RTSS group (paired analysis) month 0 vs 3 comparison
+pidOfInterest <- intersect(a,(intersect(b,f)))
+pValueMatrix_m0m3_rtss = matrix(data = 0, ncol = 336, nrow = 1) #initialize matrix
+for (i in 1:336) {
+    pValueMatrix_m0m3_rtss[1,i] = wilcox.test(Baga[Baga$PID %in% pidOfInterest & Baga$study.bleed %in% "M0" , pops[i]], 
+                                              Baga[Baga$PID %in% pidOfInterest & Baga$study.bleed %in% "M3" , pops[i]], 
+                                              paired=T, alternative="t")$p.value
+}
+AdjpValueMatrix_m0m3_rtss<- p.adjust(pValueMatrix_m0m3_rtss,"bonferroni")
+
+#comparator group (paired analysis) month 0 vs 3 comparison
+pidOfInterest <- intersect(a,(intersect(b,e)))
+pValueMatrix_m0m3_comp = matrix(data = 0, ncol = 336, nrow = 1) #initialize matrix
+for (i in 1:336) {
+    pValueMatrix_m0m3_comp[1,i] = wilcox.test(Baga[Baga$PID %in% pidOfInterest & Baga$study.bleed %in% "M0" , pops[i]], 
+                                              Baga[Baga$PID %in% pidOfInterest & Baga$study.bleed %in% "M3" , pops[i]], 
+                                              paired=T, alternative="t")$p.value
+}
+AdjpValueMatrix_m0m3_comp<- p.adjust(pValueMatrix_m0m3_comp,"bonferroni")
+
+# Vaccine.short groups compared at month 0 (unpaired analysis)
+pidOfInterest <- a
+pValueMatrix_m0_rtss.comp = matrix(data = 0, ncol = 336, nrow = 1) #initialize matrix
+for (i in 1:336) {
+    pValueMatrix_m0_rtss.comp[1,i] = wilcox.test(Baga[Baga$PID %in% pidOfInterest & Baga$PID %in% e, pops[i]], 
+                                                 Baga[Baga$PID %in% pidOfInterest & Baga$PID %in% f, pops[i]], 
+                                                 paired=F, alternative="t")$p.value
+}
+AdjpValueMatrix_m0_rtss.comp<- p.adjust(pValueMatrix_m0_rtss.comp,"bonferroni")
+
+#Vaccine.short groups compared at month 3 (unpaired analysis)
+pidOfInterest <- b
+pValueMatrix_m3_rtss.comp = matrix(data = 0, ncol = 336, nrow = 1) #initialize matrix
+for (i in 1:336) {
+    pValueMatrix_m3_rtss.comp[1,i] = wilcox.test(Baga[Baga$PID %in% pidOfInterest & Baga$PID %in% e, pops[i]], 
+                                                 Baga[Baga$PID %in% pidOfInterest & Baga$PID %in% f, pops[i]], 
+                                                 paired=F, alternative="t")$p.value
+}
+AdjpValueMatrix_m3_rtss.comp<- p.adjust(pValueMatrix_m3_rtss.comp,"bonferroni")
+
+# Month 21: Compare R3R with C3C (unpaired analysis)
+pidOfInterest <- c
+pValueMatrix_m21_R3R.comp = matrix(data = 0, ncol = 336, nrow = 1) #initialize matrix
+for (i in 1:336) {
+    pValueMatrix_m21_R3R.comp[1,i] = wilcox.test(Baga[Baga$PID %in% pidOfInterest & Baga$PID %in% h, pops[i]], 
+                                                 Baga[Baga$PID %in% pidOfInterest & Baga$PID %in% g, pops[i]], 
+                                                 paired=F, alternative="t")$p.value
+}
+AdjpValueMatrix_m21_R3R.comp<- p.adjust(pValueMatrix_m21_R3R.comp,"bonferroni")
+
+# Month 21: Compare R3R with R3C (unpaired analysis) 
+pidOfInterest <- c
+pValueMatrix_m21_splitrtss = matrix(data = 0, ncol = 336, nrow = 1) #initialize matrix
+for (i in 1:336) {
+    pValueMatrix_m21_splitrtss[1,i] = wilcox.test(Baga[Baga$PID %in% pidOfInterest & Baga$PID %in% h , pops[i]], 
+                                                  Baga[Baga$PID %in% pidOfInterest & Baga$PID %in% j , pops[i]], 
+                                                  paired=F, alternative="t")$p.value
+}
+AdjpValueMatrix_m21_splitrtss<- p.adjust(pValueMatrix_m21_splitrtss,"bonferroni")
+
+# Month 21: Compare R3C with R3C (unpaired analysis) 
+pidOfInterest <- c
+pValueMatrix_m21_R3CvsC3C = matrix(data = 0, ncol = 336, nrow = 1) #initialize matrix
+for (i in 1:336) {
+    pValueMatrix_m21_R3CvsC3C[1,i] = wilcox.test(Baga[Baga$PID %in% pidOfInterest & Baga$PID %in% g , pops[i]], 
+                                                 Baga[Baga$PID %in% pidOfInterest & Baga$PID %in% j , pops[i]], 
+                                                 paired=F, alternative="t")$p.value
+}
+AdjpValueMatrix_m21_R3CvsC3C<- p.adjust(pValueMatrix_m21_R3CvsC3C,"bonferroni")
+
+# Month 21 compared to Month 0, all groups (paired analysis)
+pidOfInterest <- intersect(a,c)
+pValueMatrix_M0m21 = matrix(data = 0, ncol = 336, nrow = 1) #initialize matrix
+for (i in 1:336) {
+    pValueMatrix_M0m21[1,i] = wilcox.test(Baga[Baga$PID %in% pidOfInterest & Baga$study.bleed %in% "M0", pops[i]], 
+                                          Baga[Baga$PID %in% pidOfInterest & Baga$study.bleed %in% "M21", pops[i]], 
+                                          paired=T, alternative="t")$p.value
+}
+AdjpValueMatrix_M0m21<- p.adjust(pValueMatrix_M0m21,"bonferroni")
+
+### join together into a data-frame
+pvalues <- c(AdjpValueMatrix_m0_rtss.comp,
+             AdjpValueMatrix_m3_rtss.comp,
+             AdjpValueMatrix_m0m3,
+             AdjpValueMatrix_m0m3_rtss,
+             AdjpValueMatrix_m0m3_comp,
+             AdjpValueMatrix_m21_R3R.comp,
+             AdjpValueMatrix_m21_R3CvsC3C,
+             AdjpValueMatrix_m21_splitrtss,
+             AdjpValueMatrix_M0m21)
+
+pvalues <- as.data.frame(pvalues)
+pvalues$comparison[1:336] <- "AdjpValueMatrix_m0_rtss.comp"
+pvalues$comparison[337:672] <- "AdjpValueMatrix_m3_rtss.comp"
+pvalues$comparison[673:1008] <- "AdjpValueMatrix_m0m3"
+pvalues$comparison[1009:1344] <-"AdjpValueMatrix_m0m3_rtss"
+pvalues$comparison[1345:1680] <- "AdjpValueMatrix_m0m3_comp" 
+pvalues$comparison[1681:2016] <- "AdjpValueMatrix_m21_R3R.comp" 
+pvalues$comparison[2017:2352] <- "AdjpValueMatrix_m21_R3CvsC3C"
+pvalues$comparison[2353:2688] <- "AdjpValueMatrix_m21_splitrtss"
+pvalues$comparison[2689:3024] <- "AdjpValueMatrix_M0m21"
+
+pvalues$comparison <- factor(pvalues$comparison, levels = c("AdjpValueMatrix_m0_rtss.comp",
+             "AdjpValueMatrix_m3_rtss.comp",
+             "AdjpValueMatrix_m0m3",
+             "AdjpValueMatrix_m0m3_rtss",
+             "AdjpValueMatrix_m0m3_comp",
+             "AdjpValueMatrix_m21_R3R.comp",
+             "AdjpValueMatrix_m21_R3CvsC3C",
+             "AdjpValueMatrix_m21_splitrtss",
+             "AdjpValueMatrix_M0m21"))
+
+#################################
+##Generate plot for Figure 1E: 
+#################################
+plotting <- pvalues[pvalues$comparison %in% c("AdjpValueMatrix_m0_rtss.comp",
+             "AdjpValueMatrix_m3_rtss.comp",
+             "AdjpValueMatrix_m0m3",
+             "AdjpValueMatrix_m0m3_rtss",
+             "AdjpValueMatrix_m0m3_comp"),]
+
+ggplot(data = plotting, aes(comparison, -log10(pvalues)))+
+  geom_boxplot(outlier.colour = "white")+
+  geom_jitter(width = 0.1,shape = 21, size = 2)+
+  ylab("-Log10 p-value (fdr adjusted)")+
+  xlab("")+
+  coord_cartesian(ylim = c(0,3))+
+  theme_classic()+
+  geom_hline(yintercept = -log10(0.01), linetype="2222")
+  scale_y_continuous(expand = c(0, 0))
+  
+#################################
+##Generate plot for Figure 1G: 
+#################################
+plotting <- pvalues[pvalues$comparison %in% c("AdjpValueMatrix_m21_R3R.comp",
+             "AdjpValueMatrix_m21_R3CvsC3C",
+             "AdjpValueMatrix_m21_splitrtss",
+             "AdjpValueMatrix_M0m21"),]
+
+ggplot(data = plotting, aes(comparison, -log10(pvalues)))+
+  geom_boxplot(outlier.colour = "white")+
+  geom_jitter(width = 0.1,shape = 21, size = 2)+
+  ylab("-Log10 p-value (fdr adjusted)")+
+  xlab("")+
+  coord_cartesian(ylim = c(0,10))+
+  theme_classic()+
+  geom_hline(yintercept = -log10(0.01), linetype="2222")
+  scale_y_continuous(expand = c(0, 0))
+
+```
+## Subgroup comparisons: Fig 2G
+```{r}
+## This analysis compares the frequency of each tSNE cluster between samples due to age group, Mozambique participants only
+# Note: The variable "agec" has 2 levels: "6-12w" = infants
+#                                          "5-17m"  = 
+
+manhica <- allPops[allPops$site %in% "MANHICA",] ## select only Mozambique children
+
+## these vectors will be called in the code below to compare groups. 
+a <- unique(manhica[manhica$agec %in% "6-12w",]$PID)
+b <- unique(manhica[manhica$agec %in% "5-17m",]$PID)
+pops <- colnames(Baga[grepl(colnames(Baga), pattern = "Pop")])
+
+# month 3
+pValueMatrix_m3_inf.vs.kids = matrix(data = 0, ncol = 336, nrow = 1) #initialize matrix
+for (i in 1:336) {
+    pValueMatrix_m3_inf.vs.kids[1,i] = wilcox.test(manhica[manhica$PID %in% a & manhica$study.bleed %in% "M3" , pops[i]], 
+                                                   manhica[manhica$PID %in% b & manhica$study.bleed %in% "M3" , pops[i]], 
+                                                   paired=FALSE, alternative="t")$p.value
+}
+AdjpValueMatrix_m3_inf.vs.kids<- p.adjust(pValueMatrix_m3_inf.vs.kids,"bonferroni")
+
+#month 21
+pValueMatrix_m21_inf.vs.kids = matrix(data = 0, ncol = 336, nrow = 1) #initialize matrix
+for (i in 1:336) {
+    pValueMatrix_m21_inf.vs.kids[1,i] = wilcox.test(manhica[manhica$PID %in% a & manhica$study.bleed %in% "M21" , pops[i]], 
+                                                    manhica[manhica$PID %in% b & manhica$study.bleed %in% "M21" , pops[i]], 
+                                                    paired=FALSE, alternative="t")$p.value
+}
+AdjpValueMatrix_m21_inf.vs.kids<- p.adjust(pValueMatrix_m21_inf.vs.kids,"bonferroni")
+
+#month 32
+pValueMatrix_m32_inf.vs.kids = matrix(data = 0, ncol = 336, nrow = 1) #initialize matrix
+for (i in 1:336) {
+    pValueMatrix_m32_inf.vs.kids[1,i] = wilcox.test(manhica[manhica$PID %in% a & manhica$study.bleed %in% "M32" , pops[i]], 
+                                                    manhica[manhica$PID %in% b & manhica$study.bleed %in% "M32" , pops[i]], 
+                                                    paired=FALSE, alternative="t")$p.value
+}
+AdjpValueMatrix_m32_inf.vs.kids<- p.adjust(pValueMatrix_m32_inf.vs.kids,"bonferroni")
+
+# join together
+pvalues <- c(AdjpValueMatrix_m3_inf.vs.kids, AdjpValueMatrix_m21_inf.vs.kids, pValueMatrix_m32_inf.vs.kids)
+
+pvalues <- as.data.frame(pvalues)
+pvalues$comparison[1:336] <- "AdjpValueMatrix_m3_inf.vs.kids"
+pvalues$comparison[337:672] <- "AdjpValueMatrix_m21_inf.vs.kids"
+pvalues$comparison[673:1008] <- "pValueMatrix_m32_inf.vs.kids"
+pvalues$comparison <- factor(pvalues$comparison, levels =  c("AdjpValueMatrix_m3_inf.vs.kids", "AdjpValueMatrix_m21_inf.vs.kids",
+                                                             "pValueMatrix_m32_inf.vs.kids"))
+#################################
+##Generate plot for Figure 2G: 
+#################################
+plotting <- pvalues
+ggplot(data = plotting, aes(comparison, -log10(pvalues)))+
+  geom_boxplot(outlier.colour = "white")+
+  geom_jitter(width = 0.1,shape = 21, size = 2, alpha = 0.5)+
+  ylab("-Log10 p-value (fdr adjusted)")+
+  xlab("")+
+  coord_cartesian(ylim = c(0,12))+
+  theme_classic()+
+  geom_hline(yintercept = -log10(0.01), linetype="2222")+
+  scale_y_continuous(expand = c(0.02, 0))
+```
+
+## Subgroup comparisons: Fig 6C
+```{r}
+## This analysis compares the frequency of each tSNE cluster between samples due to Country (Tanzania vs Mozambique),Children age-group only only
+# Note: The variable "site" has 2 levels: "BAGAMOYO" = Tanzania
+#                                          "MANHICA" = Mozambique
+
+children <- allPops[allPops$agec %in% "5-17m",]
+
+## these vectors will be called in the code below to compare groups. 
+e <- unique(children[children$site %in% "BAGAMOYO",]$PID)
+f <- unique(children[children$site %in% "MANHICA",]$PID)
+pops <- colnames(children[grepl(colnames(children), pattern = "Pop")])
+
+# month 0
+pValueMatrix_m0_site = matrix(data = 0, ncol = 336, nrow = 1) #initialize matrix
+for (i in 1:336) {
+    pValueMatrix_m0_site[1,i] = wilcox.test(children[children$PID %in% e & children$study.bleed %in% "M0" , pops[i]],
+                                            children[children$PID %in% f & children$study.bleed %in% "M0" , pops[i]],
+                                            paired=FALSE, alternative="t")$p.value
+}
+AdjpValueMatrix_m0_site<- p.adjust(pValueMatrix_m0_site,"bonferroni")
+
+#month 3
+pValueMatrix_m3_site = matrix(data = 0, ncol = 336, nrow = 1) #initialize matrix
+for (i in 1:336) {
+    pValueMatrix_m3_site[1,i] = wilcox.test(children[children$PID %in% e & children$study.bleed %in% "M3" , pops[i]],
+                                            children[children$PID %in% f & children$study.bleed %in% "M3" , pops[i]], 
+                                            paired=FALSE, alternative="t")$p.value
+}
+AdjpValueMatrix_m3_site<- p.adjust(pValueMatrix_m3_site,"bonferroni")
+
+#month 21
+pValueMatrix_m21_site = matrix(data = 0, ncol = 336, nrow = 1) #initialize matrix
+for (i in 1:336) {
+    pValueMatrix_m21_site[1,i] = wilcox.test(children[children$PID %in% e & children$study.bleed %in% "M21" , pops[i]],
+                                             children[children$PID %in% f & children$study.bleed %in% "M21" , pops[i]], 
+                                             paired=FALSE, alternative="t")$p.value
+}
+AdjpValueMatrix_m21_site<- p.adjust(pValueMatrix_m21_site,"bonferroni")
+
+#month 32
+pValueMatrix_m32_site = matrix(data = 0, ncol = 336, nrow = 1) #initialize matrix
+for (i in 1:336) {
+    pValueMatrix_m32_site[1,i] = wilcox.test(children[children$PID %in% e & children$study.bleed %in% "M32" , pops[i]],
+                                             children[children$PID %in% f & children$study.bleed %in% "M32" , pops[i]], 
+                                             paired=FALSE, alternative="t")$p.value
+}
+AdjpValueMatrix_m32_site<- p.adjust(pValueMatrix_m32_site,"bonferroni")
+
+# join together
+pvalues <- c(AdjpValueMatrix_m0_site,AdjpValueMatrix_m3_site, AdjpValueMatrix_m21_site, AdjpValueMatrix_m32_site)
+pvalues <- as.data.frame(pvalues)
+pvalues$comparison[1:336] <- "AdjpValueMatrix_m0_site"
+pvalues$comparison[337:672] <- "AdjpValueMatrix_m3_site"
+pvalues$comparison[673:1008] <- "AdjpValueMatrix_m21_site"
+pvalues$comparison[1009:1344] <- "AdjpValueMatrix_m32_site"
+
+pvalues$comparison <- factor(pvalues$comparison, levels = c("AdjpValueMatrix_m0_site","AdjpValueMatrix_m3_site",
+                                                            "AdjpValueMatrix_m21_site","AdjpValueMatrix_m32_site"))
+
+plotting <- pvalues
+
+#################################
+##Generate plot for Figure 6C: 
+#################################
+ggplot(data = plotting, aes(comparison, -log10(pvalues)))+
+  geom_boxplot(outlier.colour = "white")+
+  geom_jitter(width = 0.1,shape = 21, size = 2, alpha = 0.5)+
+  ylab("-Log10 p-value (fdr adjusted)")+
+  xlab("")+
+  coord_cartesian(ylim = c(0,20))+
+  theme_classic()+
+  geom_hline(yintercept = -log10(0.01), linetype="2222")+
+  scale_y_continuous(expand = c(0.02, 0))
+
+```

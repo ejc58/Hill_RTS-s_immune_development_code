@@ -1,0 +1,866 @@
+---
+title: 'Supporting code B '
+author: "Danika Hill"
+date: "21/11/2019"
+---
+
+\pagebreak
+
+This document contains code to use the manual gated flow cytometry data to : 
+  - Compare subgroups for the frequency of each cluster independently (e.g. vaccine group, age, country etc). 
+  - Generate heatmaps of cell types comparing subgroups (e.g. age, country)
+  - plot individual cell subsets comparing subgroups (e.g. age, country)
+  - determine the proportion of variance explained by covariates using linear regression (e.g. age, sex, country, anaemia)
+  - compare co-variates of age, weight, height between Tanzanian and Mozambique children
+
+This code can be used to recreate the following figures: 
+
+Subgroup comparisons: 
+  Fig 1F
+  Fig 1H
+  Fig 2H
+  Fig 6C
+    
+Heatmaps of cell types
+  Fig 2C
+  Fig 6B
+  
+Plot individual cell subsets comparing subgroups: 
+  Fig 2E
+  Fig 6D
+  Fig 7F
+  Fig 7G
+  
+Determine the proportion of variance of co-variates using Linear regression
+  Supp Fig 6 A-D
+  Fig 2D
+  Fig 6G
+  
+Compare co-variates between Tanzanian and Mozambique children
+  Fig 6H
+  Fig 6I
+  Fig 6J
+  
+Provided in the RData file are the following dataframes, pre-subsetted for ease of use : 
+"anemia" : cell type frequencies (% of parent) from anemics and non-anemics at B0, 94 samples, Tanzania and Mozambique. 
+"anemia.B21" : cell type frequencies (% of parent) from anemics and non-anemics at B32, 119 samples, Tanzania and Mozambique
+"fullDF" : cell type frequencies (% of leukocytes) from total data-set of 718 samples 
+"fullDF.parent" : cell type frequencies (% of parent population) from total data-set of 718 samples 
+"fullDF.zscore" : cell type frequencies (converted to z-score) from total data-set of 718 samples 
+"Mozambique" : baseline cell type frequencies (% of leukocytes) from 52 Mozambique children
+"Tanzania": baseline cell type frequencies (% of leukocytes) from 102 Tanzanian children
+"SITE" : baseline cell type frequencies (% of parent population) from 52 Mozambique children and 102 Tanzanian children
+"nutrition" : Weight (WAZ), Height (HAZ), and hemaglobin from 1965 children (from the larger RTS,S trial study)
+
+\pagebreak
+
+## load packages and data
+```{r}
+library(tidyverse)
+library(reshape2)
+library(viridis)
+library(ggplot2)
+library(RColorBrewer)
+library(gridExtra)
+library(pheatmap)
+library(gridSVG)
+library(relaimpo)
+library(gplots)
+
+## download the R data file - add to working directory
+load(file = "Supp_Code_B_manual_gated_flow.RData")
+```
+## Subgroup comparisons Fig 1F and 1H : effect of vaccine group on cell subset (as % of leukocytes)s 
+```{r}
+## This analysis compares the frequency of each cell subset (as a % of total leukocytes) between samples due to vaccine group, Tanzanian children only
+# Note: The variable "vaccine" has 3 levels: "Control" = C3C
+#                                             "RTS,S/AS01E primary schedule with booster"  = R3R
+#                                             "RTS,S/AS01E primary schedule without booster" = R3C
+#       The variable "vaccine.short" has 2 levels: "Control" = C3C
+#                                                  "RTS,S"  = R3R & R3C
+
+Baga <- fullDF[fullDF$site %in% "BAGAMOYO" ,] ## select Tanzanian children
+
+## these vectors will be called in the code below to compare groups. 
+a <- unique(Baga[ Baga$study.bleed %in% "M0",]$PID)
+b <- unique(Baga[ Baga$study.bleed %in% "M3",]$PID)
+c <- unique(Baga[ Baga$study.bleed %in% "M21",]$PID)
+d <- unique(Baga[ Baga$study.bleed %in% "M32",]$PID)
+e <- unique(Baga[Baga$vaccine.short %in% "Control",]$PID)
+f <- unique(Baga[Baga$vaccine.short %in% "RTS,S",]$PID)
+g <- unique(Baga[Baga$vaccine %in% "Control",]$PID)
+h <- unique(Baga[Baga$vaccine %in% "RTS,S/AS01E primary schedule with booster",]$PID)
+j <- unique(Baga[Baga$vaccine %in% "RTS,S/AS01E primary schedule without booster",]$PID)
+
+# Compare month 0 to month 3 for all samples (paired analysis)
+pidOfInterest <- intersect(a,b)
+pValueMatrix_m0m3 = matrix(data = 0, ncol = 70, nrow = 1) #initialize matrix
+for (i in 1:70) {
+    pValueMatrix_m0m3[1,i] = wilcox.test(Baga[Baga$PID %in% pidOfInterest & Baga$study.bleed %in% "M0" , c(i+8)], 
+                                         Baga[Baga$PID %in% pidOfInterest & Baga$study.bleed %in% "M3" , c(i+8)], 
+                                         paired=T, alternative="t")$p.value
+}
+AdjpValueMatrix_m0m3<- p.adjust(pValueMatrix_m0m3,"bonferroni")
+rm(pValueMatrix_m0m3)
+#RTSS group (paired analysis) month 0 vs 3 comparison
+pidOfInterest <- intersect(a,(intersect(b,f)))
+pValueMatrix_m0m3_rtss = matrix(data = 0, ncol = 70, nrow = 1) #initialize matrix
+for (i in 1:70) {
+    pValueMatrix_m0m3_rtss[1,i] = wilcox.test(Baga[Baga$PID %in% pidOfInterest & Baga$study.bleed %in% "M0" , c(i+8)], 
+                                              Baga[Baga$PID %in% pidOfInterest & Baga$study.bleed %in% "M3" , c(i+8)], 
+                                              paired=T, alternative="t")$p.value
+}
+AdjpValueMatrix_m0m3_rtss<- p.adjust(pValueMatrix_m0m3_rtss,"bonferroni")
+rm(pValueMatrix_m0m3_rtss)
+
+#comparator group (paired analysis) month 0 vs 3 comparison
+pidOfInterest <- intersect(a,(intersect(b,e)))
+pValueMatrix_m0m3_comp = matrix(data = 0, ncol = 70, nrow = 1) #initialize matrix
+for (i in 1:70) {
+    pValueMatrix_m0m3_comp[1,i] = wilcox.test(Baga[Baga$PID %in% pidOfInterest & Baga$study.bleed %in% "M0" , c(i+8)], 
+                                              Baga[Baga$PID %in% pidOfInterest & Baga$study.bleed %in% "M3" , c(i+8)], 
+                                              paired=T, alternative="t")$p.value
+}
+AdjpValueMatrix_m0m3_comp<- p.adjust(pValueMatrix_m0m3_comp,"bonferroni")
+rm(pValueMatrix_m0m3_comp)
+
+# Vaccine.short groups compared at month 0 (unpaired analysis)
+pidOfInterest <- a
+pValueMatrix_m0_rtss.comp = matrix(data = 0, ncol = 70, nrow = 1) #initialize matrix
+for (i in 1:70) {
+    pValueMatrix_m0_rtss.comp[1,i] = wilcox.test(Baga[Baga$PID %in% pidOfInterest & Baga$PID %in% e, c(i+8)], 
+                                                 Baga[Baga$PID %in% pidOfInterest & Baga$PID %in% f, c(i+8)], 
+                                                 paired=F, alternative="t")$p.value
+}
+AdjpValueMatrix_m0_rtss.comp<- p.adjust(pValueMatrix_m0_rtss.comp,"bonferroni")
+rm(pValueMatrix_m0_rtss.comp)
+
+#Vaccine.short groups compared at month 3 (unpaired analysis)
+pidOfInterest <- b
+pValueMatrix_m3_rtss.comp = matrix(data = 0, ncol = 70, nrow = 1) #initialize matrix
+for (i in 1:70) {
+    pValueMatrix_m3_rtss.comp[1,i] = wilcox.test(Baga[Baga$PID %in% pidOfInterest & Baga$PID %in% e, c(i+8)], 
+                                                 Baga[Baga$PID %in% pidOfInterest & Baga$PID %in% f, c(i+8)], 
+                                                 paired=F, alternative="t")$p.value
+}
+AdjpValueMatrix_m3_rtss.comp<- p.adjust(pValueMatrix_m3_rtss.comp,"bonferroni")
+rm(pValueMatrix_m3_rtss.comp)
+
+# Month 21: Compare R3R with C3C (unpaired analysis)
+pidOfInterest <- c
+pValueMatrix_m21_R3R.comp = matrix(data = 0, ncol = 70, nrow = 1) #initialize matrix
+for (i in 1:70) {
+    pValueMatrix_m21_R3R.comp[1,i] = wilcox.test(Baga[Baga$PID %in% pidOfInterest & Baga$PID %in% h, c(i+8)], 
+                                                 Baga[Baga$PID %in% pidOfInterest & Baga$PID %in% g, c(i+8)], 
+                                                 paired=F, alternative="t")$p.value
+}
+AdjpValueMatrix_m21_R3R.comp<- p.adjust(pValueMatrix_m21_R3R.comp,"bonferroni")
+rm(pValueMatrix_m21_R3R.comp)
+
+# Month 21: Compare R3R with R3C (unpaired analysis) 
+pidOfInterest <- c
+pValueMatrix_m21_splitrtss = matrix(data = 0, ncol = 70, nrow = 1) #initialize matrix
+for (i in 1:70) {
+    pValueMatrix_m21_splitrtss[1,i] = wilcox.test(Baga[Baga$PID %in% pidOfInterest & Baga$PID %in% h , c(i+8)], 
+                                                  Baga[Baga$PID %in% pidOfInterest & Baga$PID %in% j , c(i+8)], 
+                                                  paired=F, alternative="t")$p.value
+}
+AdjpValueMatrix_m21_splitrtss<- p.adjust(pValueMatrix_m21_splitrtss,"bonferroni")
+rm(pValueMatrix_m21_splitrtss)
+
+# Month 21: Compare R3C with R3C (unpaired analysis) 
+pidOfInterest <- c
+pValueMatrix_m21_R3CvsC3C = matrix(data = 0, ncol = 70, nrow = 1) #initialize matrix
+for (i in 1:70) {
+    pValueMatrix_m21_R3CvsC3C[1,i] = wilcox.test(Baga[Baga$PID %in% pidOfInterest & Baga$PID %in% g , c(i+8)], 
+                                                 Baga[Baga$PID %in% pidOfInterest & Baga$PID %in% j , c(i+8)], 
+                                                 paired=F, alternative="t")$p.value
+}
+AdjpValueMatrix_m21_R3CvsC3C<- p.adjust(pValueMatrix_m21_R3CvsC3C,"bonferroni")
+rm(pValueMatrix_m21_R3CvsC3C)
+
+# Month 21 compared to Month 0, all groups (paired analysis)
+pidOfInterest <- intersect(a,c)
+pValueMatrix_M0m21 = matrix(data = 0, ncol = 70, nrow = 1) #initialize matrix
+for (i in 1:70) {
+    pValueMatrix_M0m21[1,i] = wilcox.test(Baga[Baga$PID %in% pidOfInterest & Baga$study.bleed %in% "M0", c(i+8)], 
+                                          Baga[Baga$PID %in% pidOfInterest & Baga$study.bleed %in% "M21", c(i+8)], 
+                                          paired=T, alternative="t")$p.value
+}
+AdjpValueMatrix_M0m21<- p.adjust(pValueMatrix_M0m21,"bonferroni")
+rm(pValueMatrix_M0m21)
+
+### join together into a data-frame
+pvalues <- c(AdjpValueMatrix_m0_rtss.comp,
+             AdjpValueMatrix_m3_rtss.comp,
+             AdjpValueMatrix_m0m3,
+             AdjpValueMatrix_m0m3_rtss,
+             AdjpValueMatrix_m0m3_comp,
+             AdjpValueMatrix_m21_R3R.comp,
+             AdjpValueMatrix_m21_R3CvsC3C,
+             AdjpValueMatrix_m21_splitrtss,
+             AdjpValueMatrix_M0m21)
+
+pvalues <- as.data.frame(pvalues)
+pvalues$comparison[1:70] <- "AdjpValueMatrix_m0_rtss.comp"
+pvalues$comparison[71:140] <- "AdjpValueMatrix_m3_rtss.comp"
+pvalues$comparison[141:210] <- "AdjpValueMatrix_m0m3"
+pvalues$comparison[211:280] <-"AdjpValueMatrix_m0m3_rtss"
+pvalues$comparison[281:350] <- "AdjpValueMatrix_m0m3_comp" 
+pvalues$comparison[351:420] <- "AdjpValueMatrix_m21_R3R.comp" 
+pvalues$comparison[421:490] <- "AdjpValueMatrix_m21_R3CvsC3C"
+pvalues$comparison[491:560] <- "AdjpValueMatrix_m21_splitrtss"
+pvalues$comparison[561:630] <- "AdjpValueMatrix_M0m21"
+
+pvalues$comparison <- factor(pvalues$comparison, levels = c("AdjpValueMatrix_m0_rtss.comp",
+             "AdjpValueMatrix_m3_rtss.comp",
+             "AdjpValueMatrix_m0m3",
+             "AdjpValueMatrix_m0m3_rtss",
+             "AdjpValueMatrix_m0m3_comp",
+             "AdjpValueMatrix_m21_R3R.comp",
+             "AdjpValueMatrix_m21_R3CvsC3C",
+             "AdjpValueMatrix_m21_splitrtss",
+             "AdjpValueMatrix_M0m21"))
+
+#################################
+##Generate plot for Figure 1F: 
+#################################
+plotting <- pvalues[pvalues$comparison %in% c("AdjpValueMatrix_m0_rtss.comp",
+             "AdjpValueMatrix_m3_rtss.comp",
+             "AdjpValueMatrix_m0m3",
+             "AdjpValueMatrix_m0m3_rtss",
+             "AdjpValueMatrix_m0m3_comp"),]
+
+ggplot(data = plotting, aes(comparison, -log10(pvalues)))+
+  geom_boxplot(outlier.colour = "white")+
+  geom_jitter(width = 0.1,shape = 21, size = 2)+
+  ylab("-Log10 p-value (fdr adjusted)")+
+  xlab("")+
+  coord_cartesian(ylim = c(0,3))+
+  theme_classic()+
+  geom_hline(yintercept = -log10(0.01), linetype="2222")
+  
+#################################
+##Generate plot for Figure 1H: 
+#################################
+plotting <- pvalues[pvalues$comparison %in% c("AdjpValueMatrix_m21_R3R.comp",
+             "AdjpValueMatrix_m21_R3CvsC3C",
+             "AdjpValueMatrix_m21_splitrtss",
+             "AdjpValueMatrix_M0m21"),]
+
+ggplot(data = plotting, aes(comparison, -log10(pvalues)))+
+  geom_boxplot(outlier.colour = "white")+
+  geom_jitter(width = 0.1,shape = 21, size = 2)+
+  ylab("-Log10 p-value (fdr adjusted)")+
+  xlab("")+
+  coord_cartesian(ylim = c(0,10))+
+  theme_classic()+
+  geom_hline(yintercept = -log10(0.01), linetype="2222")
+
+rm(pvalues, a, b, c, d, e, f, g, h, i, j, pidOfInterest)
+rm(AdjpValueMatrix_m0_rtss.comp,
+             AdjpValueMatrix_m3_rtss.comp,
+             AdjpValueMatrix_m0m3,
+             AdjpValueMatrix_m0m3_rtss,
+             AdjpValueMatrix_m0m3_comp,
+             AdjpValueMatrix_m21_R3R.comp,
+             AdjpValueMatrix_m21_R3CvsC3C,
+             AdjpValueMatrix_m21_splitrtss,
+             AdjpValueMatrix_M0m21)
+```
+## Subgroup comparisons: Fig 2H Infants vs Children
+```{r}
+## This analysis compares the frequency of each cell subset (as % of leukocytes) between samples due to age group, Mozambique participants only
+# Note: The variable "agec" has 2 levels: "6-12w" = infants
+#                                          "5-17m"  = 
+
+manhica <- fullDF[fullDF$site %in% "MANHICA",] ## select only Mozambique children
+
+## these vectors will be called in the code below to compare groups. 
+a <- unique(manhica[manhica$agec %in% "6-12w",]$PID)
+b <- unique(manhica[manhica$agec %in% "5-17m",]$PID)
+
+# month 3
+pValueMatrix_m3_inf.vs.kids = matrix(data = 0, ncol = 70, nrow = 1) #initialize matrix
+for (i in 1:70) {
+    pValueMatrix_m3_inf.vs.kids[1,i] = wilcox.test(manhica[manhica$PID %in% a & manhica$study.bleed %in% "M3" , c(i+8)], 
+                                                   manhica[manhica$PID %in% b & manhica$study.bleed %in% "M3" , c(i+8)], 
+                                                   paired=FALSE, alternative="t")$p.value
+}
+AdjpValueMatrix_m3_inf.vs.kids<- p.adjust(pValueMatrix_m3_inf.vs.kids,"bonferroni")
+rm(pValueMatrix_m3_inf.vs.kids)
+
+#month 21
+pValueMatrix_m21_inf.vs.kids = matrix(data = 0, ncol = 70, nrow = 1) #initialize matrix
+for (i in 1:70) {
+    pValueMatrix_m21_inf.vs.kids[1,i] = wilcox.test(manhica[manhica$PID %in% a & manhica$study.bleed %in% "M21" , c(i+8)], 
+                                                    manhica[manhica$PID %in% b & manhica$study.bleed %in% "M21" , c(i+8)], 
+                                                    paired=FALSE, alternative="t")$p.value
+}
+AdjpValueMatrix_m21_inf.vs.kids<- p.adjust(pValueMatrix_m21_inf.vs.kids,"bonferroni")
+rm(pValueMatrix_m21_inf.vs.kids)
+
+#month 32
+pValueMatrix_m32_inf.vs.kids = matrix(data = 0, ncol = 70, nrow = 1) #initialize matrix
+for (i in 1:70) {
+    pValueMatrix_m32_inf.vs.kids[1,i] = wilcox.test(manhica[manhica$PID %in% a & manhica$study.bleed %in% "M32" , c(i+8)], 
+                                                    manhica[manhica$PID %in% b & manhica$study.bleed %in% "M32" , c(i+8)], 
+                                                    paired=FALSE, alternative="t")$p.value
+}
+AdjpValueMatrix_m32_inf.vs.kids<- p.adjust(pValueMatrix_m32_inf.vs.kids,"bonferroni")
+rm(pValueMatrix_m32_inf.vs.kids)
+
+# join together
+pvalues <- c(AdjpValueMatrix_m3_inf.vs.kids, AdjpValueMatrix_m21_inf.vs.kids, AdjpValueMatrix_m32_inf.vs.kids)
+
+pvalues <- as.data.frame(pvalues)
+pvalues$comparison[1:70] <- "AdjpValueMatrix_m3_inf.vs.kids"
+pvalues$comparison[71:140] <- "AdjpValueMatrix_m21_inf.vs.kids"
+pvalues$comparison[141:210] <- "pValueMatrix_m32_inf.vs.kids"
+pvalues$comparison <- factor(pvalues$comparison, levels =  c("AdjpValueMatrix_m3_inf.vs.kids", "AdjpValueMatrix_m21_inf.vs.kids",
+                                                             "pValueMatrix_m32_inf.vs.kids"))
+#################################
+##Generate plot for Figure 2H: 
+#################################
+plotting <- pvalues
+ggplot(data = plotting, aes(comparison, -log10(pvalues)))+
+  geom_boxplot(outlier.colour = "white")+
+  geom_jitter(width = 0.1,shape = 21, size = 2, alpha = 0.5)+
+  ylab("-Log10 p-value (fdr adjusted)")+
+  xlab("")+
+  coord_cartesian(ylim = c(0,12))+
+  theme_classic()+
+  geom_hline(yintercept = -log10(0.01), linetype="2222")+
+  scale_y_continuous(expand = c(0.02, 0))
+
+rm(pvalues,a, b, AdjpValueMatrix_m3_inf.vs.kids, AdjpValueMatrix_m21_inf.vs.kids, AdjpValueMatrix_m32_inf.vs.kids)
+```
+
+## Subgroup comparisons: Fig 6C Tanzania vs Mozambique
+```{r}
+## This analysis compares the frequency of each cell subset (as % of leukocytes) between samples due to Country (Tanzania vs Mozambique),Children age-group only only
+# Note: The variable "site" has 2 levels: "BAGAMOYO" = Tanzania
+#                                          "MANHICA" = Mozambique
+
+children <- fullDF[fullDF$agec %in% "5-17m",]
+
+## these vectors will be called in the code below to compare groups. 
+e <- unique(children[children$site %in% "BAGAMOYO",]$PID)
+f <- unique(children[children$site %in% "MANHICA",]$PID)
+
+
+# month 0
+pValueMatrix_m0_site = matrix(data = 0, ncol = 70, nrow = 1) #initialize matrix
+for (i in 1:70) {
+    pValueMatrix_m0_site[1,i] = wilcox.test(children[children$PID %in% e & children$study.bleed %in% "M0" , c(i+8)],
+                                            children[children$PID %in% f & children$study.bleed %in% "M0" , c(i+8)],
+                                            paired=FALSE, alternative="t")$p.value
+}
+AdjpValueMatrix_m0_site<- p.adjust(pValueMatrix_m0_site,"bonferroni")
+rm(pValueMatrix_m0_site)
+
+#month 3
+pValueMatrix_m3_site = matrix(data = 0, ncol = 70, nrow = 1) #initialize matrix
+for (i in 1:70) {
+    pValueMatrix_m3_site[1,i] = wilcox.test(children[children$PID %in% e & children$study.bleed %in% "M3" , c(i+8)],
+                                            children[children$PID %in% f & children$study.bleed %in% "M3" , c(i+8)], 
+                                            paired=FALSE, alternative="t")$p.value
+}
+AdjpValueMatrix_m3_site<- p.adjust(pValueMatrix_m3_site,"bonferroni")
+rm(pValueMatrix_m3_site)
+
+#month 21
+pValueMatrix_m21_site = matrix(data = 0, ncol = 70, nrow = 1) #initialize matrix
+for (i in 1:70) {
+    pValueMatrix_m21_site[1,i] = wilcox.test(children[children$PID %in% e & children$study.bleed %in% "M21" , c(i+8)],
+                                             children[children$PID %in% f & children$study.bleed %in% "M21" , c(i+8)], 
+                                             paired=FALSE, alternative="t")$p.value
+}
+AdjpValueMatrix_m21_site<- p.adjust(pValueMatrix_m21_site,"bonferroni")
+rm(pValueMatrix_m21_site)
+
+#month 32
+pValueMatrix_m32_site = matrix(data = 0, ncol = 70, nrow = 1) #initialize matrix
+for (i in 1:70) {
+    pValueMatrix_m32_site[1,i] = wilcox.test(children[children$PID %in% e & children$study.bleed %in% "M32" , c(i+8)],
+                                             children[children$PID %in% f & children$study.bleed %in% "M32" , c(i+8)], 
+                                             paired=FALSE, alternative="t")$p.value
+}
+AdjpValueMatrix_m32_site<- p.adjust(pValueMatrix_m32_site,"bonferroni")
+rm(pValueMatrix_m32_site)
+
+# join together
+pvalues <- c(AdjpValueMatrix_m0_site,AdjpValueMatrix_m3_site, AdjpValueMatrix_m21_site, AdjpValueMatrix_m32_site)
+pvalues <- as.data.frame(pvalues)
+pvalues$comparison[1:70] <- "AdjpValueMatrix_m0_site"
+pvalues$comparison[71: 140] <- "AdjpValueMatrix_m3_site"
+pvalues$comparison[141:210] <- "AdjpValueMatrix_m21_site"
+pvalues$comparison[211:280] <- "AdjpValueMatrix_m32_site"
+
+pvalues$comparison <- factor(pvalues$comparison, levels = c("AdjpValueMatrix_m0_site","AdjpValueMatrix_m3_site",
+                                                            "AdjpValueMatrix_m21_site","AdjpValueMatrix_m32_site"))
+
+plotting <- pvalues
+
+#################################
+##Generate plot for Figure 6C: 
+#################################
+ggplot(data = plotting, aes(comparison, -log10(pvalues)))+
+  geom_boxplot(outlier.colour = "white")+
+  geom_jitter(width = 0.1,shape = 21, size = 2, alpha = 0.5)+
+  ylab("-Log10 p-value (fdr adjusted)")+
+  xlab("")+
+  coord_cartesian(ylim = c(0,20))+
+  theme_classic()+
+  geom_hline(yintercept = -log10(0.01), linetype="2222")+
+  scale_y_continuous(expand = c(0.02, 0))
+
+rm(pvalues, plotting, children, AdjpValueMatrix_m0_site,AdjpValueMatrix_m3_site, AdjpValueMatrix_m21_site, AdjpValueMatrix_m32_site, e, f)
+```
+
+#Heatmaps of cell types : Fig 2C 
+```{r}
+## This code can be used to generate a heatmap of cell types that are significantly different (as % of leukocytes) between samples due to age group, Mozambique participants only
+# Note: The variable "agec" has 2 levels: "6-12w" = infants
+#                                          "5-17m"  = "children"
+
+# filter by things that are significantly different between infants and children
+a <- unique(manhica[manhica$agec %in% "6-12w",]$PID)
+b <- unique(manhica[manhica$agec %in% "5-17m",]$PID)
+
+pValueMatrix = matrix(data = 0, ncol = 70, nrow = 1) #initialize matrix
+for (i in 1:70) {
+    pValueMatrix[1,i] = wilcox.test(manhica[manhica$PID %in% a & manhica$study.bleed %in% "M3" , c(i+8)], 
+                                                   manhica[manhica$PID %in% b & manhica$study.bleed %in% "M3" , c(i+8)], 
+                                                   paired=FALSE, alternative="t")$p.value
+}
+
+AdjpValueMatrix<- p.adjust(pValueMatrix,"fdr")
+rm(pValueMatrix)
+signif.children <- which(AdjpValueMatrix <0.001)
+length(signif.children)
+signif.children.names <- colnames(manhica[,9:78])[signif.children] ## take forward only the 33 populations that are different
+
+heated <- fullDF.zscore[fullDF.zscore$study.bleed %in% "M3" & fullDF$site %in% "MANHICA" ,c("PID", "agec", signif.children.names)]
+colnames(heated) <- c("PID", "agec",signif.children.names)
+heated <- heated[complete.cases(heated),] ## exclude samples with missing values. 
+heated.PID <- heated$PID
+heated.agec <- heated$agec
+
+## generate various variables needed for the annotating the heatmap
+mat_col <- data.frame(group1=as.character(heated$agec))  
+rownames(mat_col) <- colnames(t(heated))   
+mat_colors <- list(group1 = c("#000000","#D9D9D9"))  
+names(mat_colors$group1) <- levels(heated$agec)  
+
+# The palette for the heatmap 
+heatpal <- c("#40004B","#9970AB", "#E7D4E8", 
+             "#F7F7F7" ,
+             "#D9F0D3" ,"#5AAE61" ,"#1B7837", "#00441B")
+
+### Generate heatmap
+plotting <- as.matrix(t(heated[,3:ncol(heated)]))
+
+pheatmap(plotting, color = colorRampPalette(heatpal)(50), kmeans_k = NA, breaks = NA, border_color = NA,
+cellwidth = NA, cellheight = NA, scale = "none", cluster_rows = TRUE,
+cluster_cols = TRUE, clustering_distance_rows = "euclidean",
+clustering_distance_cols = "euclidean", clustering_method = "complete", cutree_rows = 3, cutree_cols =2,
+legend = TRUE, legend_breaks = NA,
+legend_labels = NA, annotation_row = NA, annotation_col = mat_col, annotation_colors = mat_colors, 
+annotation_legend = TRUE,annotation_names_row = TRUE, annotation_names_col = TRUE,
+drop_levels = TRUE, show_rownames = T, show_colnames = F, main = NA,
+fontsize = 8, display_numbers = F, number_format = "%.2f", number_color = "grey30",
+fontsize_number = 0.8 * fontsize, gaps_row = NULL, gaps_col = NULL,
+labels_row = NULL, labels_col = NULL, filename = NA, width = NA,
+height = NA, silent = FALSE)
+# grid.export("Heatmap.infs.svg")
+
+rm(plotting,AdjpValueMatrix, heated, mat_col, mat_colors, a, b, heated.agec, heated.PID, heatpal, signif.children)
+```
+
+#Heatmaps of cell types : Fig 6B Tanzania vs Mozambique
+  
+```{r}
+## This code can be used to generate a heatmap of cell types that are significantly different (as % of leukocytes) between samples due to country, (Mozambique or Tanzania), children only 
+# Note: The variable "site" has 2 levels: "BAGAMOYO" = Tanzania
+#                                          "MANHICA" = Mozambique
+
+# filter by things that are significantly different between Tanzania and Mozambique
+pValueMatrix = matrix(data = 0, ncol = 70, nrow = 1) #initialize matrix
+for (i in 1:70) {
+    pValueMatrix[1,i] = wilcox.test(Tanzania[,c(i+7)], Mozambique[,c(i+7)], paired = FALSE, alternative="t")$p.value
+}
+colnames(pValueMatrix) <- colnames(Tanzania[,8:77])
+pValueMatrixAdj <- p.adjust(pValueMatrix,"fdr")
+signif.site <- which(pValueMatrixAdj <0.0001)
+signif.site.names <- colnames(Tanzania[,8:77])[signif.site] ## take forward only the 31 populations that are different
+
+heated <- fullDF.zscore[fullDF.zscore$study.bleed %in% "M3" & fullDF.zscore$agec %in% "5-17m" ,c("PID", "site", signif.site.names)]
+colnames(heated) <- c("PID", "site",signif.site.names)
+heated <- heated[complete.cases(heated),] ## exclude samples with missing values. 
+plotting <- as.matrix(t(heated[,3:ncol(heated)]))
+
+## generate various variables needed for the annotating the heatmap
+mat_col <- data.frame(group1=as.character(heated$site)) 
+rownames(mat_col) <- colnames(t(heated)) 
+mat_colors <- list(group1 = c("#D9D9D9","#000000")) 
+names(mat_colors$group1) <- levels(heated$site) 
+heatpal <- c("#40004B","#9970AB", "#E7D4E8", 
+             "#F7F7F7" ,
+             "#D9F0D3" ,"#5AAE61" ,"#1B7837", "#00441B")
+
+# Generate heatmap
+pheatmap(plotting, color = colorRampPalette(heatpal)(50), kmeans_k = NA, breaks = NA, border_color = NA,
+cellwidth = NA, cellheight = NA, scale = "none", cluster_rows = TRUE,
+cluster_cols = TRUE, clustering_distance_rows = "euclidean",
+clustering_distance_cols = "euclidean", clustering_method = "complete", cutree_rows = 3, cutree_cols =2,
+legend = T, legend_breaks = NA,
+legend_labels = NA, annotation_row = NA, annotation_col = mat_col, annotation_colors = mat_colors, annotation_legend = FALSE,
+annotation_names_row = TRUE, annotation_names_col = TRUE,
+drop_levels = TRUE, show_rownames = T, show_colnames = F, main = NA,
+fontsize = 9, display_numbers = F, number_format = "%.2f", number_color = "grey30",
+fontsize_number = 0.8 * fontsize, gaps_row = NULL, gaps_col = NULL,
+labels_row = NULL, labels_col = NULL, filename = NA, width = NA,
+height = NA, silent = FALSE)
+
+
+rm(plotting,heated, heat.colors, heated.PID, heated.agec, heatpal, pValueMatrix, pValueMatrixAdj, mat_col, signif.site, mat_colors)
+```
+# Plot individual cell subsets comparing subgroups: Fig 2E, 6D, 7F, 7G. 
+
+```{r}
+## Fig 2E: individual cell types compared between children and infants at month 3. 
+# Note: The variable "agec" has 2 levels: "6-12w" = infants
+#                                          "5-17m"  = children
+
+plotting <- fullDF.parent[fullDF.parent$site %in% "MANHICA" & fullDF.parent$study.bleed %in% "M3",] ## pull out month 3 from "% of parent" data-set
+
+cell.type <- "cTfh"  ### change here to graph chosen cell type 
+
+pvalue <- wilcox.test(plotting[plotting$agec %in% "5-17m",cell.type],
+            plotting[plotting$agec %in% "6-12w",cell.type], 
+            alternative = "two.sided", paired = F)$p.value
+
+ggplot(data=plotting, aes(agec, plotting[,cell.type]))+
+  geom_boxplot(outlier.color = "white", show.legend = F, aes(fill = NULL)) +
+  geom_jitter(show.legend = F, width = 0.2, size =1.2, shape = 21, aes(fill = plotting$agec))  + 
+  ylab(paste(cell.type, "(% of parent)", sep = "")) + xlab("Age Group") + 
+  ggtitle(paste("p =", pvalue, sep = "" ))+
+  theme_classic() + 
+  scale_y_continuous(expand = c(0, 0))+
+  scale_fill_manual(values = c("#FFFFFF", "#000000"))+
+  coord_cartesian(ylim = c(0,12)) ## change ylim as needed
+
+## Fig 6D: individual cell types compared between Tanzania and Mozambique 
+# Note: The variable "site" has 2 levels: "BAGAMOYO" = Tanzania
+#                                         "MANHICA" = Mozamique
+plotting <- SITE
+
+cell.type <- "cTfh"  ### change here to graph chosen cell type 
+
+pvalue <- wilcox.test(plotting[plotting$site %in% "BAGAMOYO",cell.type],
+            plotting[plotting$site %in% "MANHICA",cell.type], 
+            alternative = "two.sided", paired = F)$p.value
+
+ggplot(data=plotting, aes(site, plotting[,cell.type]))+
+  geom_boxplot(outlier.color = "white", show.legend = F, aes(fill = NULL)) +
+  geom_jitter(show.legend = F, width = 0.2, size =1.2, shape = 21, aes(fill = plotting$site))  + 
+  ylab(paste(cell.type, "(% of parent)", sep = "")) + xlab("Country") + 
+  ggtitle(paste("p =", pvalue, sep = "" ))+
+  theme_classic() + 
+  scale_y_continuous(expand = c(0, 0))+
+  scale_fill_manual(values = c("#FFFFFF", "#000000"))+
+  coord_cartesian(ylim = c(0,8)) ## change ylim as needed
+
+## Fig 7F: individual cell types compared between anemics and non-anemics at B0. 
+
+plotting <- anemia
+
+cell.type <- "CD27+ IgG+"  ### change here to graph chosen cell type 
+
+pvalue <- wilcox.test(plotting[plotting$anemic %in% "non-anemic",cell.type],
+            plotting[plotting$anemic %in% "anemic",cell.type], 
+            alternative = "two.sided", paired = F)$p.value
+
+ggplot(data=plotting, aes(anemic, plotting[,cell.type]))+
+  geom_boxplot(outlier.color = "white", show.legend = F, aes(fill = NULL)) +
+  geom_jitter(show.legend = F, width = 0.2, size =1.2, shape = 21, aes(fill = plotting$anemic))  + 
+  ylab(paste(cell.type, "(% of parent)", sep = "")) + xlab("Anemia status") + 
+  ggtitle(paste("p =", pvalue, sep = "" ))+
+  theme_classic() + 
+  scale_y_continuous(expand = c(0, 0))+
+  scale_fill_manual(values = c("#FFFFFF", "#000000"))+
+  coord_cartesian(ylim = c(0,8)) ## change ylim as needed
+
+## Fig 7F: individual cell types compared between anemics and non-anemics at B0. 
+
+plotting <- anemia.B21
+
+cell.type <- "CD27+ IgG+"  ### change here to graph chosen cell type 
+
+pvalue <- wilcox.test(plotting[plotting$anemic %in% "non-anemic",cell.type],
+            plotting[plotting$anemic %in% "anemic",cell.type], 
+            alternative = "two.sided", paired = F)$p.value
+
+ggplot(data=plotting, aes(anemic, plotting[,cell.type]))+
+  geom_boxplot(outlier.color = "white", show.legend = F, aes(fill = NULL)) +
+  geom_jitter(show.legend = F, width = 0.2, size =1.2, shape = 21, aes(fill = plotting$anemic))  + 
+  ylab(paste(cell.type, "(% of parent)", sep = "")) + xlab("Anemia status at B21") + 
+  ggtitle(paste("p =", pvalue, sep = "" ))+
+  theme_classic() + 
+  scale_y_continuous(expand = c(0, 0))+
+  scale_fill_manual(values = c("#FFFFFF", "#000000"))
+  # coord_cartesian(ylim = c(0,8)) ## change ylim as needed
+
+rm(plotting, pvalue, cell.type)
+```
+# Determine the proportion of variance of co-variates using Linear regression : Supp Fig 6 A-B
+
+```{r}
+## This code will determine the % of variation explained by "vaccine group" at each time-point. 
+
+timepoint <- "M0" ## run this code 3 times in total, changing to M3, M21 then M32
+timepoint <- "M3" 
+timepoint <- "M21" 
+timepoint <- "M32" 
+# Execute for each time-point
+
+for.model <- fullDF[fullDF$study.bleed %in% timepoint,]
+all.models <- matrix(nrow = 70, ncol =8)
+colnames(all.models) <- c("p_of_model","r2_of_model", "p_of_vaccine", "p_of_PID","p_of_sex", "prop_attributed_to_vaccine","prop_attributed_to_patientID", "prop_attributed_to_sex")
+
+for(i in 1:70){
+  model <- lm(for.model[,c(i+8)] ~ for.model[,"vaccine.short" ]  +for.model[,"PID"]+ for.model[,"sex"], na.action = "na.exclude")
+  all.models[i, 2] <- summary(model)$r.squared
+  all.models[i, 1] <- pf(summary(model)$fstatistic[1], summary(model)$fstatistic[2], summary(model)$fstatistic[3], lower.tail = F)
+  all.models[i,3] <- coef(summary(model))[2,4] # p-value of vaccine group
+  all.models[i,4] <- coef(summary(model))[3,4] # p-value for sample ID
+  all.models[i,5] <- coef(summary(model))[4,4] # p-value for sex differences
+  if(i %in% 1:70){
+    ca <- calc.relimp(model, diff = T, rela = F)
+    all.models[i, 6] <- ca$lmg[grepl(pattern = "vaccine", x = names(ca$lmg))] # % of R^2 for vaccine group
+    all.models[i, 7] <- ca$lmg[grepl(pattern = "PID", x = names(ca$lmg))] # % of R^2 for inter-individual variation
+    all.models[i, 8] <- ca$lmg[grepl(pattern = "sex", x = names(ca$lmg))] # % of R^2 for sex
+  rm(ca)
+  }
+rm(model)
+cat(i, sep = "\t")
+}
+all.models[,3] <- p.adjust(all.models[,3], method = "fdr")
+all.models[,4] <- p.adjust(all.models[,4], method = "fdr")
+all.models[,5] <- p.adjust(all.models[,5], method = "fdr")
+
+#################
+
+# Add data for each time-point to the following matrix after executing the code above modifying the "timepoint" variable
+Pops.together <- matrix(nrow = c(70*4), ncol =8) #initiate matrix
+Pops.together[1:70,1:8] <- all.models  # for M0
+Pops.together[71:140,1:8] <- all.models # for M3
+Pops.together[141:210,1:8] <- all.models # for M21
+Pops.together[211:280,1:8]<- all.models # for M32
+
+# Once all 4 time points tested, create data-frame.
+Pops.together <- data.frame(Pops.together)
+Pops.together$cell_type <- rep(names(for.model[,9:78]),4)
+Pops.together$time <- factor(c(rep.int("M0", 70),rep.int("M3", 70),rep.int("M21", 70),rep.int("M32", 70)), levels = c("M0","M3","M21","M32"))
+colnames(Pops.together) <- c("p_of_model","r2_of_model", "p_of_vaccine", "p_of_PID","p_of_sex", "prop_attributed_to_vaccine","prop_attributed_to_patientID", "prop_attributed_to_sex", "cell_type", "time")
+
+# Create Supp Fig 6A : % of R^2 variation due to vaccine type
+# pdf("Pops.together.variance.pdf", width = 3, height = 3)
+ggplot(Pops.together, aes(time, Pops.together$prop_attributed_to_vaccine))+
+  geom_boxplot(outlier.colour = "white")+
+  geom_jitter(pch = 21, width = 0.2, aes(fill = time, alpha = 0.5))+
+  coord_cartesian(ylim = c(0,0.10))+
+  scale_fill_manual(values = c("yellow", "orange", "red", "purple"))+
+  ylab("R2 due to vaccine type")+
+  xlab("")+
+  theme_classic()
+# dev.off()
+
+# Create Supp Fig 6B : p-value for vaccine type effect
+# pdf("Pops.together.p-value.log10.pdf",width = 3, height = 3)
+ggplot(Pops.together, aes(time, -log10(Pops.together$p_of_vaccine)))+
+  geom_boxplot(outlier.colour = "white")+
+  geom_jitter(pch = 21, width = 0.2, aes(fill = time, alpha = 0.5))+
+  coord_cartesian(ylim = c(0,4.01))+
+  scale_fill_manual(values = c("yellow", "orange", "red", "purple"))+
+  ylab("-log10 p-value for vaccine type")+
+  xlab("")+
+  geom_hline(yintercept= -log10(0.001), linetype="dashed", color = "black", alpha=0.3)+
+  theme_classic()
+# dev.off()
+
+# Create Supp Fig 6C : % of R^2 variation due to sex
+# pdf("Pops.together.variance.sex.pdf", width = 3, height = 3)
+ggplot(Pops.together, aes(time, Pops.together$prop_attributed_to_sex))+
+  geom_boxplot(outlier.colour = "white")+
+  geom_jitter(pch = 21, width = 0.2, aes(fill = time, alpha = 0.5))+
+  coord_cartesian(ylim = c(0,0.10))+
+  scale_fill_manual(values = c("yellow", "orange", "red", "purple"))+
+  ylab("R2 due to sex")+
+  xlab("")+
+  theme_classic()
+# dev.off()
+
+# Create Supp Fig 6D : p-value for sex
+# pdf("Pops.together.p-value.log10.sex.pdf",width = 3, height = 3)
+ggplot(Pops.together, aes(time, -log10(Pops.together$p_of_sex)))+
+  geom_boxplot(outlier.colour = "white")+
+  geom_jitter(pch = 21, width = 0.2, aes(fill = time, alpha = 0.5))+
+  coord_cartesian(ylim = c(0,4.001))+
+  scale_fill_manual(values = c("yellow", "orange", "red", "purple"))+
+  ylab("-log10 p-value for sex")+
+  xlab("")+
+  geom_hline(yintercept= -log10(0.001), linetype="dashed", color = "black", alpha=0.3)+
+  theme_classic()
+# dev.off()
+```
+
+# Determine the proportion of variance of co-variates using Linear regression : Figure 2D Infants vs children
+
+```{r}
+for.model <- fullDF[fullDF$site %in% "MANHICA" & fullDF$study.bleed %in% "M3",]
+
+all.models <- matrix(nrow = 70, ncol =6)
+colnames(all.models) <- c("p_of_model","r2_of_model", "p_of_agec","p_of_sex",  "R2_agec","R2_sex")
+
+########
+for(i in 1:70){
+  model <- lm(for.model[,c(i+8)] ~ for.model[,"agec"]+for.model[,"sex"], na.action = "na.exclude")
+  all.models[i, 2] <- summary(model)$r.squared # R2 of model
+  all.models[i, 1] <- pf(summary(model)$fstatistic[1], summary(model)$fstatistic[2], summary(model)$fstatistic[3], lower.tail = F) # pvalue of model
+  all.models[i,3] <- coef(summary(model))[2,4] #p-value agec
+  all.models[i,4] <- coef(summary(model))[3,4] #p-value sex
+    if(i %in% 1:70){
+    ca <- calc.relimp(model, diff = T, rela = F)
+    all.models[i, 5] <- ca$lmg[grepl(pattern = "agec", x = names(ca$lmg))] ##proportion of variation agec
+    all.models[i, 6] <- ca$lmg[grepl(pattern = "sex", x = names(ca$lmg))] ##proportion of variation sex
+  rm(ca)
+  }
+rm(model)
+cat(i, sep = "\t")
+}
+rownames(all.models) <- names(fullDF[,9:78])
+all.models[,1] <- p.adjust(all.models[,1], method = "fdr")
+all.models[,3] <- p.adjust(all.models[,3], method = "fdr")
+all.models[,4] <- p.adjust(all.models[,4], method = "fdr")
+
+# use all.models data frame to generate a box plot of interaction terms
+variance <- as.data.frame(c(all.models[,5],all.models[,6])) # create new variable combining both
+variance$type <- "Age group"
+variance[71:140,]$type <-"sex"
+
+# create plot
+ggplot(variance, aes(type, variance[,1]))+
+  geom_boxplot(aes(fill = type))+
+  coord_cartesian(ylim = c(-0.01,0.801))+
+  scale_fill_manual(values = c("white", "black", "grey"))+
+  ylab("Variance explained (R2)")+
+  xlab("")+
+  scale_y_continuous(expand = c(0, 0))+
+  theme_classic()
+
+rm(variance, all.models, for.model)
+```
+
+# Determine the proportion of variance of co-variates using Linear regression : Figure 6G Tanzania vs Mozambique
+
+```{r}
+## this code uses the vector "signif.site.names" which can be generated using the code above in section : "#Heatmaps of cell types : Fig 6B""
+for.model <- rbind(Mozambique, Tanzania)
+for.model <- cbind(for.model[,c(1:8)], for.model[,signif.site.names]) ## select only significant cell populations
+all.models <- matrix(nrow = length(signif.site.names), ncol =9)
+colnames(all.models) <- c("p_of_model","r2_of_model", "p_of_site","p_of_ageAtvisit",  "R2_ageatVisit","R2_site",  "prop_attributed_PID","p_of_sex","R2_sex")
+
+########
+for(i in 1:length(signif.site.names)){
+  model <- lm(for.model[,c(i+8)] ~ for.model[,"site"] +for.model[,"ageAtVisit"]+for.model[,"sex"], na.action = "na.exclude")
+  all.models[i, 2] <- summary(model)$r.squared
+  all.models[i, 1] <- pf(summary(model)$fstatistic[1], summary(model)$fstatistic[2], summary(model)$fstatistic[3], lower.tail = F)
+  all.models[i,4] <- coef(summary(model))[3,4] # p value AGE
+  all.models[i,3] <- coef(summary(model))[2,4] # p value SITE
+  all.models[i,8] <- coef(summary(model))[4,4] # p value SEX
+  if(i %in% 1:length(signif.site.names)){
+    ca <- calc.relimp(model, diff = T, rela = F)
+    all.models[i, 5] <- ca$lmg[grepl(pattern = "ageAtVisit", x = names(ca$lmg))]
+    all.models[i, 6] <- ca$lmg[grepl(pattern = "site", x = names(ca$lmg))]
+    all.models[i,9] <-ca$lmg[grepl(pattern = "sex", x = names(ca$lmg))]
+    rm(ca)
+  }
+rm(model)
+cat(i, sep = "\t")
+}
+# All models have R2 and p from lm; those that calc.relimp can disentangle are disentangled.
+rownames(all.models) <- signif.site.names
+all.models[,4] <- p.adjust(all.models[,4], method = "fdr")
+all.models[,3] <- p.adjust(all.models[,3], method = "fdr")
+all.models[,8] <- p.adjust(all.models[,8], method = "fdr")
+
+# use all.models data frame to generate a box plot of interaction terms
+variance <- as.data.frame(c(all.models[,5],all.models[,6],all.models[,9])) #generate new variable
+variance$type <- "age"
+variance[32:62,]$type <- "site"
+variance[63:93,]$type <-"sex"
+
+## Plot variance explained
+ggplot(variance, aes(type, variance[,1]))+
+  geom_boxplot(aes(fill = type))+
+  coord_cartesian(ylim = c(-0.01,0.801))+
+  scale_fill_manual(values = c("white", "black", "grey"))+
+  ylab("Variance explained (R2)")+
+  xlab("")+
+  scale_y_continuous(expand = c(0, 0))+
+  theme_classic()
+
+rm(variance, all.models, for.model)
+```
+# Compare co-variates between Tanzanian and Mozambique children: Fig 6H-J
+
+```{r}
+## This analysis uses a much larger data-set from the RTS,S cohort to compare differences between Bagamoyo and Manhica sites. 
+# The variable "site" contains 2 levels: "BAGAMOYO" = Tanzania
+#                                         "MANHICA" = Mozambique
+
+# Compare the weight of children. Fig 6H (WAZ = weight adjusted Z-score)
+
+ggplot(data = nutrition, aes(x = site, y = WAZ_M0))+
+  geom_boxplot(show.legend = F, aes(fill = site)) +
+  ylab("WAZ") + xlab("") +
+  theme_classic() + 
+  scale_y_continuous(expand = c(0, 0))+
+  scale_fill_manual(values = c("white", "grey"))+
+  xlab("")+
+  coord_cartesian(ylim = c(-5,5))
+  
+wilcox.test(nutrition[nutrition$site %in% "MANHICA",]$WAZ_M0,nutrition[nutrition$site %in% "BAGAMOYO",]$WAZ_M0, alternative = "two.sided", paired = F)
+
+# Compare the height of children. Fig 6I (HAZ = height adjusted Z-score)
+ggplot(data = nutrition, aes(x = site, y = HAZ_M0))+
+  geom_boxplot(show.legend = F, aes(fill = site)) +
+  ylab("HAZ") + xlab("") +
+  theme_classic() + 
+  scale_y_continuous(expand = c(0, 0))+
+  scale_fill_manual(values = c("white", "grey"))+
+  xlab("")+
+  coord_cartesian(ylim = c(-5,5))
+  
+wilcox.test(nutrition[nutrition$site %in% "MANHICA",]$HAZ_M0,nutrition[nutrition$site %in% "BAGAMOYO",]$HAZ_M0, alternative = "two.sided", paired = F)
+
+
+# compare the hemoglobin levels of children : 
+# Note: BSLHB_M0 is the baseline hemoglobin measure
+ggplot(data = nutrition, aes(x = site, y = BSLHB_M0))+
+  geom_boxplot(show.legend = F, aes(fill = site)) +
+  ylab("hemoglobin level at baseline (g/dL)") + xlab("") +
+  theme_classic() + 
+  scale_fill_manual(values = c("white", "grey"))+
+  xlab("")+
+  coord_cartesian(ylim = c(5,15))+
+  scale_y_continuous(expand = c(0, 0))+
+  geom_hline(yintercept=11, linetype="dashed", color = "black", alpha=0.3)+
+  geom_hline(yintercept=9.9, linetype="dashed", color = "black", alpha=0.3)+
+  geom_hline(yintercept=7, linetype="dashed", color = "black", alpha=0.3)
+  
+wilcox.test(nutrition[nutrition$site %in% "MANHICA",]$BSLHB_M0,nutrition[nutrition$site %in% "BAGAMOYO",]$BSLHB_M0, alternative = "two.sided", paired = F)
+```
+
