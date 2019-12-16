@@ -5,19 +5,21 @@ Supporting code for Hill et al. "Immune system development varies according to a
 
 ## Introduction
 
-This code supports the manuscript. In particular, it outlines our methodology behind various figures in the paper.
+This code outlines the analyses behind various figures in the paper.
 
 This is a github mirror of an RStudio project.
 
 The relevant data is supplied in the folder `/data`
 
-Html output is provided in the folder `/html`. Knitting the provided Rmarkdown files (.Rmd) here will re-generate these html files in the project directory. These are difficult to view on github (it does not render the html) - the RStudio viewer will render these. 
+Html output is provided in the folder `/html`. Knitting the provided Rmarkdown files (.Rmd) here will re-generate these html files in the project directory. The contents of `/html` are difficult to view on github.com (it does not render the html) - the RStudio viewer will render these so you can compare your local results to our own. 
 
-R  packages are managed by the packrat package manager, so the end-user can install this repository on their local machine on a 'fresh' version of R. Source code packages are included, which should work on Windows/OSX/Unix. We have tested OSX and Unix. Use `packrat::status()` and `packrat::restore()` before trying to run the .Rmd files.
+R  packages are managed by the packrat package manager, so the end-user can install this repository on their local machine on a 'fresh' version of R/Rstudio. Source code packages are included, which should work on Windows/OSX/Unix. We have tested OSX and Unix. Use `packrat::status()` and `packrat::restore()` before trying to run the .Rmd files.
 
 ## Workflow [for novices]
 
 1. Install RStudio https://rstudio.com/products/rstudio/download/
+
+ - tested with Rstudio 1.2.5019 and R 3.6.1
 
 2. Install git, either via:
 
