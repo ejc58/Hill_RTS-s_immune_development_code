@@ -23,7 +23,7 @@ R  packages are managed by the packrat package manager, so the end-user can inst
 
 i. https://git-scm.com
 
-ii. or, **if you do not have administrator rights**, via `conda`
+ii. or, **if you do not have administrator rights**, via `conda` (which does not require admin rights to install)
 
 - follow miniconda2 installation guide for your OS eg https://conda.io/projects/conda/en/latest/user-guide/install/macos.html
   
