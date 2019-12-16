@@ -54,7 +54,7 @@ The absolute counts for Generation R data were transformed into "% of parent" fr
 Convert GenR month of age to "ageAtVisit" variable in weeks. 
 
 
-### 2. To run supplementary code D, the required R libraries need gfortran to compile amd mofapy to run.
+### 2. To run supplementary code D, the required R packages need gfortran to compile amd mofapy to run.
 
 - gfortran
   - gfortran is not present on a fresh OSX install
