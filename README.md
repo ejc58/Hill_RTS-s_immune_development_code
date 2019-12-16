@@ -7,11 +7,13 @@ Supporting code for Hill et al. "Immune system development varies according to a
 
 This code supports the manuscript. In particular, it outlines our methodology behind various figures in the paper.
 
-This is a github mirror of an RStudio project. R libraries are managed by the packrat library manager, so it should be possible for the end-user to install on their local machine on a 'fresh' version of R.
+This is a github mirror of an RStudio project.
 
 The relevant data is supplied in the folder `/data`
 
-Html output is provided in the folder `/html`. Knitting the provided Rmarkdown files (.Rmd) here will re-generate these html files in the project directory.
+Html output is provided in the folder `/html`. Knitting the provided Rmarkdown files (.Rmd) here will re-generate these html files in the project directory. These are difficult to view on github (it does not render the html) - the RStudio viewer will render these. 
+
+R  packages are managed by the packrat package manager, so it should be possible for the end-user to install on their local machine on a 'fresh' version of R. Use `packrat::status()` and `packrat::restore()` before trying to run the .Rmd files.
 
 ## Workflow [for novices]
 
@@ -35,7 +37,9 @@ ii. or, if you do not have administrator rights, via `conda`
 
 3. Follow RStudio's guide to pull this project from GitHub
 
-4. Knit the accompanying Rmd files
+4. Install the packages, by running the following in RStudio console: `packrat::status()` and `packrat::restore()`
+
+5. Knit the accompanying Rmd files
 
 
 ## Additional considerations
@@ -64,5 +68,3 @@ Convert GenR month of age to "ageAtVisit" variable in weeks.
   - `conda install mofapy`
   - there are several dependencies that are also installed, so this can take a few minutes to complete.
   - if you are using an alternative installation of python/mofapy see the MOFA vignette to configure
-  
-- some R libraries are only available on bioconductor
