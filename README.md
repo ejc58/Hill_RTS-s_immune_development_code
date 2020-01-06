@@ -1,6 +1,6 @@
 # Hill RTS-s immune development code
 
-Supporting code for Hill et al. "Immune system development varies according to age, location and anemia in African children"
+Supporting code for Hill et al. "Immune system development varies according to age, location and anemia in African children" 2020.
 
 
 ## Introduction
@@ -67,4 +67,12 @@ Convert GenR month of age to "ageAtVisit" variable in weeks.
   - `conda config --add channels bioconda`
   - `conda install mofapy`
   - there are several dependencies that are also installed, so this can take a few minutes to complete.
-  - if you are using an alternative installation of conda, python or mofapy see the MOFA vignette to configure
+  - if you are using an alternative installation of conda, python or mofapy see the MOFA vignette to configure (https://www.bioconductor.org/packages/release/bioc/vignettes/MOFA/inst/doc/MOFA.html)
+  - Getting R to 'see' the correct verison of python on your system can be tricky - again see the MOFA vignette for further info (https://www.bioconductor.org/packages/release/bioc/vignettes/MOFA/inst/doc/MOFA.html)
+  
+
+## Licence
+
+[![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)]
+
+The primary data provided here is licensed under CC BY 4.0, alongside our accompanying manuscript (Hill et al. 2020). There are a number of R packages (from CRAN or Bioconductor) included in this github repository. We have included these pacakges to provide a ground-state, as of December 2019, which will allow replication our analyses. All packages retain the original license from their authors/creators. Future users are encouraged to review these licences.
